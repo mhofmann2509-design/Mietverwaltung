@@ -97,8 +97,8 @@ final class AppearanceStore: ObservableObject {
 /// sind jetzt von `AppearanceStore.shared.style` abhängig (siehe `AppearanceStyle`): „light“ im
 /// zugrunde liegenden `Color(light:dark:)` steht für „Warm & Persönlich“, „dark“ für „Dashboard
 /// Pro“ – über `.preferredColorScheme` an der App-Wurzel erzwungen.
-@MainActor
 enum Theme {
+    @MainActor
     private static var style: AppearanceStyle { AppearanceStore.shared.style }
 
     // MARK: - Statusfarben (zurückhaltend statt satter Systemfarben)
@@ -145,6 +145,7 @@ enum Theme {
 
     static let cardBackground = Color(light: Color(red: 1.0, green: 0.988, blue: 0.965), dark: Color(red: 0.090, green: 0.106, blue: 0.137))
     static let cardBorder = Color(light: Color(red: 0.941, green: 0.886, blue: 0.800), dark: Color(red: 0.149, green: 0.173, blue: 0.220))
+    @MainActor
     static var cardCornerRadius: CGFloat { style == .warmPersonal ? 20 : 14 }
     static let cardPadding: CGFloat = 16
 
@@ -164,18 +165,20 @@ enum Theme {
     /// Design-Variante für Fließtext-Zahlen: Monospace unterstreicht bei „Dashboard Pro“ den
     /// datendichten, technischen Charakter; „Warm & Persönlich“ bleibt beim freundlicheren
     /// abgerundeten Schnitt.
+    @MainActor
     private static var numericDesign: Font.Design { style == .dashboardPro ? .monospaced : .rounded }
 
     /// Für die große Ergebniskennzahl einer Kachel (z.B. das steuerliche Jahresergebnis).
+    @MainActor
     static var heroValueFont: Font { .system(size: 30, weight: .bold, design: numericDesign) }
     /// Für den Wert einer Kennzahlenkarte (z.B. „12.400 €").
-    static var metricValueFont: Font { .title3.weight(.semibold).monospacedDigit() }
+    static let metricValueFont: Font = .title3.weight(.semibold).monospacedDigit()
     /// Für die Bezeichnung unter/über dem Wert.
     static let metricLabelFont: Font = .caption
     static let sectionTitleFont: Font = .headline
     static let pageTitleFont: Font = .largeTitle.weight(.bold)
 
-    @ViewBuilder
+    @MainActor @ViewBuilder
     static func card<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         content()
             .padding(cardPadding)
@@ -184,7 +187,7 @@ enum Theme {
 
     /// Karte mit Rahmen statt Füllung – für Karten, die bereits auf einer gefüllten Karte oder
     /// einem Listenhintergrund liegen, damit sich Flächen nicht gegenseitig erschlagen.
-    @ViewBuilder
+    @MainActor @ViewBuilder
     static func outlinedCard<Content: View>(@ViewBuilder content: () -> Content) -> some View {
         content()
             .padding(cardPadding)
