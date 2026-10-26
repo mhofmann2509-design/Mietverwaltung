@@ -36,6 +36,7 @@ struct TaxModulePropertyView: View {
     @State private var afaHerleitungExpanded = false
     @State private var ongoingChecklistExpanded = true
     @State private var homeOfficeEntry: HomeOfficeEntry?
+    @State private var includeThresholdInOngoingReport = false
 
     init(property: Property, initialYear: Int? = nil) {
         self.property = property
@@ -402,8 +403,15 @@ struct TaxModulePropertyView: View {
                     Button("Erstanlage-PDF erstellen") {
                         generatePDF(kind: .initialSetup)
                     }
+                    if property.thresholdCase != nil {
+                        Toggle("15-%-Grenze hinzufügen", isOn: $includeThresholdInOngoingReport)
+                            .font(.subheadline)
+                        Text("Nimmt das Kapitel zur 15-%-Grenze nur in dieses eine PDF auf, falls gewünscht – nicht automatisch jedes Jahr.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                     Button("Laufender-Betrieb-PDF erstellen (\(String(selectedYear)))") {
-                        generatePDF(kind: .ongoing(taxYear: selectedYear))
+                        generatePDF(kind: .ongoing(taxYear: selectedYear), includeThresholdCheck: includeThresholdInOngoingReport)
                     }
                     if !pdfWarnings.isEmpty {
                         VStack(alignment: .leading, spacing: 4) {
@@ -446,8 +454,8 @@ struct TaxModulePropertyView: View {
         thresholdCase.ensureAssessments(context: context)
     }
 
-    private func generatePDF(kind: TaxReportKind) {
-        let (url, warnings) = TaxReportPDFBuilder.build(property: property, kind: kind)
+    private func generatePDF(kind: TaxReportKind, includeThresholdCheck: Bool = false) {
+        let (url, warnings) = TaxReportPDFBuilder.build(property: property, kind: kind, includeThresholdCheck: includeThresholdCheck)
         pdfPreviewURL = url
         pdfWarnings = warnings
     }

@@ -3,11 +3,13 @@ import SwiftData
 import PDFKit
 
 /// Welcher der beiden getrennten Steuerreports erzeugt werden soll (siehe Auftrag Abschnitt 3,
-/// Modus A/B): die einmalige Erstanlage (Objekt-/Anschaffungsdaten, AfA-Herleitung, 15-%-Grenze,
-/// Möbelverzeichnis) oder der laufende Betrieb eines bestimmten Steuerjahres (Anlage V,
-/// AfA-Herleitung, Erhaltungsaufwand/sonstige Werbungskosten, Belegverzeichnis). Beide Reports
-/// sind reine PDF-Unterlagen fürs Finanzamt und enthalten bewusst keine Checkliste – die
-/// Vorbereitungs-Checkliste ist ein reines Bildschirm-Werkzeug in TaxModulePropertyView.
+/// Modus A/B): die einmalige Erstanlage (Objekt-/Anschaffungsdaten, volle AfA-Herleitung,
+/// 15-%-Grenze, Möbelverzeichnis) oder der laufende Betrieb eines bestimmten Steuerjahres (Anlage V
+/// – AfA dort nur als Endbetrag, die volle Herleitung bleibt dem AfA-Bericht vorbehalten –,
+/// Erhaltungsaufwand/sonstige Werbungskosten, Belegverzeichnis, optional die 15-%-Grenze nach
+/// bewusster Nutzeraktion). Beide Reports sind reine PDF-Unterlagen fürs Finanzamt und enthalten
+/// bewusst keine Checkliste – die Vorbereitungs-Checkliste ist ein reines Bildschirm-Werkzeug in
+/// TaxModulePropertyView.
 enum TaxReportKind {
     case initialSetup
     case ongoing(taxYear: Int)
@@ -109,7 +111,11 @@ enum TaxReportPDFBuilder {
         }
     }
 
-    static func build(property: Property, kind: TaxReportKind) -> (url: URL?, warnings: [String]) {
+    /// `includeThresholdCheck`: nur für `.ongoing` relevant – nimmt die 15-%-Grenze nur nach
+    /// bewusster Nutzeraktion in den jährlichen Report auf (siehe `TaxModulePropertyView`-Toggle
+    /// „15-%-Grenze hinzufügen"), statt sie automatisch jedes Jahr mitzuführen. `.initialSetup`
+    /// enthält sie unabhängig davon immer, `.standaloneThreshold` ist ohnehin nur dieses Kapitel.
+    static func build(property: Property, kind: TaxReportKind, includeThresholdCheck: Bool = false) -> (url: URL?, warnings: [String]) {
         let generatedAt = Date.now
         var warnings: [String] = []
         var chapters: [Chapter] = []
@@ -138,10 +144,12 @@ enum TaxReportPDFBuilder {
             addAll(buildThresholdChapters(property: property), otherwiseWarn: "15-%-Grenze")
         case .ongoing(let taxYear):
             add(buildAnlageVChapter(property: property, taxYear: taxYear), otherwiseWarn: "Anlage V – Einnahmen und Werbungskosten")
-            addAll(buildAfaChapters(property: property, taxYear: taxYear), otherwiseWarn: "AfA-Herleitung")
             add(buildMaintenanceChapter(property: property, taxYear: taxYear), otherwiseWarn: "Erhaltungsaufwand und Herstellungskosten – Einzelnachweis")
             add(buildOtherExpensesChapter(property: property, taxYear: taxYear), otherwiseWarn: "Sonstige Werbungskosten – Einzelnachweis")
             add(buildDocumentsChapter(property: property, taxYear: taxYear), otherwiseWarn: "Belegverzeichnis \(String(taxYear))")
+            if includeThresholdCheck {
+                addAll(buildThresholdChapters(property: property), otherwiseWarn: "15-%-Grenze")
+            }
         case .standaloneThreshold:
             addAll(buildThresholdChapters(property: property), otherwiseWarn: "15-%-Grenze")
         case .standaloneAfa(let taxYear):
@@ -272,50 +280,66 @@ enum TaxReportPDFBuilder {
         return Chapter(title: "Objekt- und Anschaffungsdaten", introLines: [], summaryLines: lines, columnHeaders: [], rows: [])
     }
 
-    // MARK: - Kapitel: AfA-Herleitung (vier Teilkapitel, siehe Design-Analyse Abschnitt 8)
+    // MARK: - Kapitel: AfA-Herleitung (drei Teilkapitel: Herleitung Gebäude, Jahresreihe, bewegliche Wirtschaftsgüter)
 
     private static func buildAfaChapters(property: Property, taxYear: Int) -> [Chapter] {
         guard property.buildingValue > 0 else { return [] }
         var chapters: [Chapter] = []
 
-        // 1 · Ergebnis und Anschaffungskosten
-        var lines: [String] = []
-        lines.append("Gebäude-AfA \(String(taxYear)): \(property.buildingAfA(forYear: taxYear).asCurrency) · Bewegliche Wirtschaftsgüter: \(property.assetDepreciation(forYear: taxYear).asCurrency) · Summe: \(property.totalAfa(forYear: taxYear).asCurrency)")
-        lines.append("Kumulierte Gebäude-AfA: \(property.cumulativeBuildingAfA(uptoYear: taxYear).asCurrency) · Restbuchwert: \(property.remainingBuildingBookValue(afterYear: taxYear).asCurrency)")
-        lines.append("")
-        lines.append("1 · Kaufpreis gesamt: \(property.purchasePrice.asCurrency)")
-        if property.purchaseAncillaryCosts > 0 {
-            lines.append("2 · Anschaffungsnebenkosten (Gesamtsumme): \(property.purchaseAncillaryCosts.asCurrency)")
-        }
-        lines.append("3 · Anschaffungskosten gesamt (1+2): \(property.totalAcquisitionCost.asCurrency)")
-        lines.append("4 · Grund-und-Boden-Anteil (lt. Kaufvertrag): \((property.landValuePercentage * 100).asPercent)")
-        lines.append("5 · Grund und Boden, anteilig inkl. Nebenkosten (3×4): \(property.apportionedLandValue.asCurrency)")
-        lines.append("6 · AfA-Bemessungsgrundlage Gebäude (3−5): \(property.buildingValue.asCurrency)")
-        chapters.append(Chapter(title: "AfA-Herleitung – Ergebnis und Anschaffungskosten", introLines: [], summaryLines: lines, columnHeaders: [], rows: []))
+        // 1 · Herleitung Gebäude-AfA als eine durchgehende Tabelle (Kaufdaten → Nebenkosten →
+        // Grund/Gebäude-Aufteilung → AfA-Satz-Quelle → Endergebnis → Kumuliert), angelehnt an die
+        // vom Nutzer beigelegte Excel-Referenz „AfA-Herleitung Gebäude – OnePager": dieselben,
+        // bereits an anderer Stelle getesteten Werte, nur tabellarisch statt als Fließtext. Die
+        // Excel-Vorlage schlüsselt Anschaffungsnebenkosten in vier Einzelposten (Grunderwerbsteuer/
+        // Notar/Makler/Sonstiges) auf – das Objektmodell kennt dafür bewusst nur eine Summe
+        // (`purchaseAncillaryCosts`); eine Aufschlüsselung würde ein neues Datenfeld in einem
+        // anderen Modul erfordern und wird hier nicht übernommen (siehe Antwort an den Nutzer).
+        var afaRows: [[String]] = []
+        afaRows.append(["##KAUFDATEN", ""])
+        afaRows.append(["Kaufdatum", property.purchaseDate?.asShortDate ?? "nicht erfasst"])
+        afaRows.append(["Kaufpreis gesamt", property.purchasePrice.asCurrency])
+        afaRows.append(["Grund-und-Boden-Anteil (lt. Kaufvertrag)", (property.landValuePercentage * 100).asPercent])
 
-        // 2 · AfA-Satz und Nutzungsdauer – drei Fälle sauber unterschieden, siehe Property.afaRateSource.
-        var rateLines: [String] = []
-        rateLines.append("Angewandter Satz: \(property.afaRatePercent.asPercent) (\(property.afaRateSource.label), \(property.afaRateSource.legalBasis))")
-        rateLines.append("")
-        let typisiertMarker = property.afaRateSource == .typisiert ? "  ← angewandt" : ""
-        rateLines.append("1) Typisiert nach Baujahr: \(property.defaultAfaRatePercent.asPercent)\(typisiertMarker)")
+        afaRows.append(["##ANSCHAFFUNGSNEBENKOSTEN", ""])
+        afaRows.append(["Anschaffungsnebenkosten (Summe)", property.purchaseAncillaryCosts.asCurrency])
+        afaRows.append(["**Anschaffungskosten gesamt (Kaufpreis + Nebenkosten)", "**" + property.totalAcquisitionCost.asCurrency])
+
+        afaRows.append(["##AUFTEILUNG GRUND UND BODEN / GEBÄUDE", ""])
+        afaRows.append(["Grund und Boden, anteilig inkl. Nebenkosten", property.apportionedLandValue.asCurrency])
+        afaRows.append(["**Gebäudeanteil / AfA-Bemessungsgrundlage", "**" + property.buildingValue.asCurrency])
+
+        afaRows.append(["##RESTNUTZUNGSDAUER-GUTACHTEN", ""])
         if let appraisal = property.latestRemainingUsefulLifeAppraisal {
-            let appraisalMarker = property.afaRateSource == .appraisal ? "  ← angewandt" : ""
-            rateLines.append("2) Restnutzungsdauergutachten vom \(appraisal.valuationDate.asShortDate): RND \(Int(appraisal.remainingUsefulLifeYears.rounded())) Jahre → Satz \(appraisal.suggestedAfaRatePercent.asPercent)\(appraisalMarker)")
+            afaRows.append(["Gutachten vorhanden", "Ja, vom \(appraisal.valuationDate.asShortDate)"])
+            afaRows.append(["Restnutzungsdauer lt. Gutachten", "\(Int(appraisal.remainingUsefulLifeYears.rounded())) Jahre → \(appraisal.suggestedAfaRatePercent.asPercent)"])
         } else {
-            rateLines.append("2) Restnutzungsdauergutachten: nicht erfasst")
+            afaRows.append(["Gutachten vorhanden", "Nein – es gilt der typisierte Satz"])
         }
-        if let override = property.afaRatePercentOverride {
-            rateLines.append("3) Manuell festgelegter Satz: \(override.asPercent)  ← angewandt")
-        } else {
-            rateLines.append("3) Manuell festgelegter Satz: nicht gesetzt")
+        let rateHerleitung: String
+        switch property.afaRateSource {
+        case .typisiert: rateHerleitung = "Typisiert nach Baujahr (\(property.afaRateSource.legalBasis))"
+        case .appraisal: rateHerleitung = "Restnutzungsdauergutachten (\(property.afaRateSource.legalBasis))"
+        case .manual: rateHerleitung = "Manuell festgelegt (\(property.afaRateSource.legalBasis))" + (property.latestRemainingUsefulLifeAppraisal != nil ? " – Hinweis: ein Gutachten liegt vor, wird aber nicht angewandt" : "")
         }
-        if property.afaRatePercentOverride != nil, property.latestRemainingUsefulLifeAppraisal != nil {
-            rateLines.append("Hinweis: Ein Gutachten liegt vor, angewandt wird jedoch der manuell festgelegte Satz – bitte prüfen, ob das weiterhin gewollt ist.")
-        }
-        chapters.append(Chapter(title: "AfA-Herleitung – AfA-Satz und Nutzungsdauer", introLines: [], summaryLines: rateLines, columnHeaders: [], rows: []))
+        afaRows.append(["Angewandte Herleitung", rateHerleitung])
 
-        // 3 · Jahresreihe Gebäude – historisch/aktuell/Prognose unterschieden.
+        afaRows.append(["##AFA-BERECHNUNG – ENDERGEBNIS", ""])
+        afaRows.append(["AfA-Satz maßgeblich", property.afaRatePercent.asPercent])
+        afaRows.append(["**Jährliche Gebäude-AfA \(String(taxYear))", "**" + property.buildingAfA(forYear: taxYear).asCurrency])
+
+        afaRows.append(["##KUMULIERT", ""])
+        afaRows.append(["Kumulierte Gebäude-AfA seit Anschaffung", property.cumulativeBuildingAfA(uptoYear: taxYear).asCurrency])
+        afaRows.append(["Restbuchwert Gebäude (Stand \(String(taxYear)))", property.remainingBuildingBookValue(afterYear: taxYear).asCurrency])
+
+        chapters.append(Chapter(
+            title: "AfA-Herleitung – Gebäude",
+            introLines: ["Anschaffungsnebenkosten als Gesamtsumme (siehe Objektdaten) – die Einzelposten Grunderwerbsteuer/Notar/Makler/Sonstiges werden dort nicht getrennt erfasst."],
+            summaryLines: [],
+            columnHeaders: ["Position", "Wert"],
+            rows: afaRows
+        ))
+
+        // 2 · Jahresreihe Gebäude – historisch/aktuell/Prognose unterschieden.
         if let purchaseDate = property.purchaseDate {
             let startYear = Calendar.current.component(.year, from: purchaseDate)
             let currentCalendarYear = Calendar.current.component(.year, from: .now)
@@ -643,7 +667,10 @@ enum TaxReportPDFBuilder {
 
         return Chapter(
             title: "Anlage V – Einnahmen und Werbungskosten",
-            introLines: ["Einkünfte aus Vermietung und Verpachtung, Steuerjahr \(String(taxYear)). Tilgungsanteile sind keine Werbungskosten und daher nicht enthalten."],
+            introLines: [
+                "Einkünfte aus Vermietung und Verpachtung, Steuerjahr \(String(taxYear)). Tilgungsanteile sind keine Werbungskosten und daher nicht enthalten.",
+                "Vollständige AfA-Herleitung (inkl. Anschaffungsnebenkosten- und Grund-und-Boden-Aufteilung): siehe AfA-Bericht."
+            ],
             summaryLines: [],
             columnHeaders: ["Position", "Betrag"],
             rows: rows
