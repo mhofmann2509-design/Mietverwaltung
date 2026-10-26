@@ -155,22 +155,8 @@ final class Property {
         let calendar = Calendar.current
         guard let yearStart = calendar.date(from: DateComponents(year: year, month: 1, day: 1)),
               let yearEnd = calendar.date(from: DateComponents(year: year, month: 12, day: 31)) else { return 0 }
-
-        func monthIndex(_ date: Date) -> Int {
-            let components = calendar.dateComponents([.year, .month], from: date)
-            return (components.year ?? 0) * 12 + (components.month ?? 0)
-        }
-
         return (units ?? []).reduce(0.0) { sum, unit in
-            let unitTotal = (unit.tenancies ?? []).reduce(0.0) { partial, tenancy in
-                let tenancyEnd = tenancy.endDate ?? yearEnd
-                let overlapStart = max(tenancy.startDate, yearStart)
-                let overlapEnd = min(tenancyEnd, yearEnd)
-                guard overlapStart <= overlapEnd else { return partial }
-                let months = monthIndex(overlapEnd) - monthIndex(overlapStart) + 1
-                return partial + tenancy.coldRent * Double(months)
-            }
-            return sum + unitTotal
+            sum + (unit.tenancies ?? []).reduce(0.0) { $0 + $1.coldRentContribution(from: yearStart, to: yearEnd) }
         }
     }
 

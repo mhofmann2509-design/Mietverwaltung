@@ -139,20 +139,15 @@ struct DashboardView: View {
 
     // MARK: - Kennzahlenkarten
 
-    /// Summe der Kaltmiete aller im Zeitraum jeweils laufenden Mietverhältnisse, Monat für Monat
-    /// aufsummiert (ein unterjährig begonnenes/beendetes Mietverhältnis fließt nur für die
-    /// tatsächlich überlappenden Monate ein) – analog zu `Property.annualColdRent(forYear:)`,
-    /// aber granular für Monat/Quartal/Jahr nutzbar.
+    /// Summe der Kaltmiete aller im Zeitraum jeweils laufenden Mietverhältnisse, monatsgenau
+    /// anteilig für die tatsächlich überlappenden Monate – nutzt dieselbe Methode wie
+    /// `Property.annualColdRent(forYear:)` (`Tenancy.coldRentContribution(from:to:)`), nur
+    /// granular für Monat/Quartal/Jahr statt nur für ein volles Kalenderjahr. Zuvor hatte diese
+    /// Funktion eine eigene Tag-1-Stichprobe je Monat, die ein unterjährig begonnenes
+    /// Mietverhältnis für den Startmonat auf 0 € statt anteilig zählte – im Widerspruch zu den
+    /// Renditekacheln, die bereits `annualColdRent(forYear:)` nutzen.
     private func coldRent(in range: (start: Date, end: Date)) -> Double {
-        let calendar = Calendar.current
-        var total = 0.0
-        var date = range.start
-        while date <= range.end {
-            total += scopedTenancies.filter { $0.isRunning(on: date) }.reduce(0.0) { $0 + $1.coldRent }
-            guard let next = calendar.date(byAdding: .month, value: 1, to: date) else { break }
-            date = next
-        }
-        return total
+        scopedTenancies.reduce(0.0) { $0 + $1.coldRentContribution(from: range.start, to: range.end) }
     }
 
     private var kaltmieteInPeriod: Double {

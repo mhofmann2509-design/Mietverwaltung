@@ -87,6 +87,25 @@ final class Tenancy {
             }
     }
 
+    /// Anteilige Kaltmiete dieses Mietverhältnisses innerhalb eines frei wählbaren Zeitraums:
+    /// monatsgenau für die tatsächlich überlappenden Monate, nicht nur für Monate, deren 1. Tag in
+    /// den Zeitraum fällt – ein unterjährig begonnenes oder beendetes Mietverhältnis fließt also
+    /// nicht mit vollen Monaten ein. Gemeinsame Basis für `Property.annualColdRent(forYear:)` und
+    /// die Dashboard-Kennzahl je gewähltem Zeitraum, damit beide dieselbe Zahl zeigen.
+    func coldRentContribution(from rangeStart: Date, to rangeEnd: Date) -> Double {
+        let calendar = Calendar.current
+        func monthIndex(_ date: Date) -> Int {
+            let components = calendar.dateComponents([.year, .month], from: date)
+            return (components.year ?? 0) * 12 + (components.month ?? 0)
+        }
+        let tenancyEnd = endDate ?? rangeEnd
+        let overlapStart = max(startDate, rangeStart)
+        let overlapEnd = min(tenancyEnd, rangeEnd)
+        guard overlapStart <= overlapEnd else { return 0 }
+        let months = monthIndex(overlapEnd) - monthIndex(overlapStart) + 1
+        return coldRent * Double(months)
+    }
+
     /// Laufender Saldo des Mietrückstandskontos zu einem Stichtag: Summe aus Soll minus Ist über
     /// alle Monate seit Mietbeginn bis einschließlich des Monats von `date` – positiv bedeutet
     /// einen Rückstand des Mieters, negativ ein Guthaben. Monate ohne erfasste Zahlung gelten
