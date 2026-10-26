@@ -14,6 +14,7 @@ enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
     case documents
     case taxGlossary
     case tax
+    case appearance
 
     var id: String { rawValue }
 
@@ -31,6 +32,7 @@ enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
         case .documents: return "Dokumente"
         case .taxGlossary: return "Steuerbegriffe"
         case .tax: return "Steuern"
+        case .appearance: return "Darstellung"
         }
     }
 
@@ -48,6 +50,7 @@ enum SidebarSection: String, CaseIterable, Identifiable, Hashable {
         case .documents: return "folder"
         case .taxGlossary: return "book"
         case .tax: return "percent"
+        case .appearance: return "paintpalette"
         }
     }
 }
@@ -68,6 +71,7 @@ enum SidebarSelection: Hashable {
 }
 
 struct ContentView: View {
+    @ObservedObject private var appearanceStore = AppearanceStore.shared
     @State private var selection: SidebarSelection? = .section(.dashboard)
     @State private var propertiesOverviewExpanded = true
     @State private var tenantsExpanded = true
@@ -246,7 +250,13 @@ struct ContentView: View {
                         Label(SidebarSection.documents.label, systemImage: SidebarSection.documents.systemImage)
                     }
                 }
+
+                Section("Einstellungen") {
+                    Label(SidebarSection.appearance.label, systemImage: SidebarSection.appearance.systemImage)
+                        .tag(SidebarSelection.section(.appearance))
+                }
             }
+            .themedScrollBackground()
             .navigationTitle("Mietverwaltung")
             .navigationSplitViewColumnWidth(min: 220, ideal: 280, max: 420)
         } detail: {
@@ -276,6 +286,7 @@ struct ContentView: View {
                     case .documents: DocumentListView()
                     case .taxGlossary: TaxGlossaryView()
                     case .tax: TaxModuleView()
+                    case .appearance: AppearanceSettingsView()
                     }
                 case .property(let property):
                     PropertyDetailView(property: property)
@@ -314,6 +325,9 @@ struct ContentView: View {
             }
             .id(selection)
         }
+        .tint(Theme.accent)
+        .preferredColorScheme(appearanceStore.style.colorScheme)
+        .id(appearanceStore.style)
     }
 }
 
