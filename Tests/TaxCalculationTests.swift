@@ -406,6 +406,39 @@ final class TaxCalculationTests: XCTestCase {
         XCTAssertEqual(year2.remainingBalance, 95_900, accuracy: 0.01)
     }
 
+    // MARK: - Cashflow
+
+    /// `freeCashFlow(forYear:)` speist die Cashflow-Kacheln in PropertyDetailView/TaxModule, war
+    /// aber bisher komplett ungetestet. Prüft, dass Kaltmiete, Barausgaben (außer Finanzierung) und
+    /// Annuität korrekt zusammenspielen, und dass `operativeCashFlow` zusätzlich die umlagefähigen
+    /// Betriebskosten abzieht (hier 0, da keine Nebenkostenabrechnung erfasst ist).
+    func testFreeCashFlowSubtractsExpensesAndAnnuityFromColdRent() {
+        let property = Property(purchasePrice: 300_000, purchaseDate: calendarDate(2024, 1, 1), landValue: 60_000)
+        property.loanAmount = 100_000
+        property.interestRatePercent = 5.0
+        property.initialRepaymentRatePercent = 2.0
+        property.loanStartDate = calendarDate(2024, 1, 1)
+        context.insert(property)
+
+        let unit = Unit(name: "1. OG")
+        unit.property = property
+        context.insert(unit)
+
+        let tenancy = Tenancy(startDate: calendarDate(2024, 1, 1), coldRent: 1_000)
+        tenancy.unit = unit
+        context.insert(tenancy)
+
+        let maintenance = Expense(date: calendarDate(2024, 6, 1), amount: 1_500, category: .other, taxTreatment: .maintenanceExpense)
+        maintenance.property = property
+        context.insert(maintenance)
+
+        // Kaltmiete 12.000 € (12 × 1.000 €) − Barausgaben 1.500 € − Annuität 7.000 € (100.000 € × 7 %) = 3.500 €.
+        XCTAssertEqual(property.annualColdRent(forYear: 2024), 12_000, accuracy: 0.01)
+        XCTAssertEqual(property.freeCashFlow(forYear: 2024), 3_500, accuracy: 0.01)
+        // Ohne erfasste Nebenkostenabrechnung sind die umlagefähigen Kosten 0 € → identisch zum freien Cashflow.
+        XCTAssertEqual(property.operativeCashFlow(forYear: 2024), 3_500, accuracy: 0.01)
+    }
+
     // MARK: - Mietrückstände
 
     /// `Tenancy.arrearsBalance` ist die Grundlage der Mietrückstands-Anzeige in Zahlungen/Dashboard
