@@ -359,6 +359,38 @@ final class TaxCalculationTests: XCTestCase {
         XCTAssertEqual(property.annualColdRent(forYear: 2026), tenancy.coldRentContribution(from: calendarDate(2026, 1, 1), to: calendarDate(2026, 12, 31)), accuracy: 0.01)
     }
 
+    // MARK: - Ausgaben (Immobilie + Einheiten)
+
+    /// `allExpenses(forYear:)` ist die gemeinsame Grundlage von `maintenanceExpenses`,
+    /// `otherDeductibleExpenses`, `capitalizedExpenses` und `totalExpenses`, bisher aber nie direkt
+    /// getestet. Prüft die Vereinigung aus direkt der Immobilie und einer ihrer Einheiten
+    /// zugeordneten Ausgaben, ohne eine Ausgabe doppelt zu zählen.
+    func testAllExpensesCombinesPropertyAndUnitExpensesWithoutDuplicates() {
+        let property = Property(name: "Test")
+        context.insert(property)
+        let unit = Unit(name: "1. OG")
+        unit.property = property
+        context.insert(unit)
+
+        let propertyExpense = Expense(date: calendarDate(2026, 2, 1), amount: 300, taxTreatment: .maintenanceExpense)
+        propertyExpense.property = property
+        context.insert(propertyExpense)
+
+        let unitExpense = Expense(date: calendarDate(2026, 5, 1), amount: 150, taxTreatment: .otherDeductible)
+        unitExpense.unit = unit
+        context.insert(unitExpense)
+
+        // Ausgabe eines anderen Jahres darf nicht mitgezählt werden.
+        let otherYearExpense = Expense(date: calendarDate(2025, 12, 1), amount: 999, taxTreatment: .maintenanceExpense)
+        otherYearExpense.property = property
+        context.insert(otherYearExpense)
+
+        XCTAssertEqual(property.allExpenses(forYear: 2026).count, 2)
+        XCTAssertEqual(property.maintenanceExpenses(forYear: 2026), 300, accuracy: 0.01)
+        XCTAssertEqual(property.otherDeductibleExpenses(forYear: 2026), 150, accuracy: 0.01)
+        XCTAssertEqual(property.totalExpenses(forYear: 2026), 450, accuracy: 0.01)
+    }
+
     // MARK: - Zinsen/Tilgung, Werbungskosten
 
     func testPrincipalRepaymentIsNotCountedAsDeductibleInterest() {
