@@ -330,8 +330,8 @@ enum TaxReportPDFBuilder {
         let assets = property.depreciableAssets ?? []
         if !assets.isEmpty {
             let assetRows = assets.sorted { $0.placedInServiceDate < $1.placedInServiceDate }.map { asset -> [String] in
-                let cumulative = cumulativeDepreciation(asset: asset, upTo: taxYear)
-                let remaining = max(0, asset.depreciationBasis - cumulative)
+                let cumulative = asset.cumulativeDepreciation(uptoYear: taxYear)
+                let remaining = asset.remainingDepreciationBookValue(afterYear: taxYear)
                 return [
                     asset.name,
                     asset.placedInServiceDate.asShortDate,
@@ -446,14 +446,6 @@ enum TaxReportPDFBuilder {
         }
 
         return chapters
-    }
-
-    private static func cumulativeDepreciation(asset: DepreciableAsset, upTo taxYear: Int) -> Double {
-        let startYear = Calendar.current.component(.year, from: asset.placedInServiceDate)
-        guard taxYear >= startYear else { return 0 }
-        var sum = 0.0
-        for year in startYear...taxYear { sum += asset.depreciation(forYear: year) }
-        return sum
     }
 
     // MARK: - Kapitel: Erhaltungsaufwand und Herstellungskosten

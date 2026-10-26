@@ -155,4 +155,22 @@ final class DepreciableAsset {
         }
         return annualDepreciation
     }
+
+    /// Kumulierte Abschreibung bis einschließlich des angegebenen Jahres, gedeckelt auf
+    /// `depreciationBasis`. Für Wirtschaftsgüter mit fester Nutzungsdauer begrenzt bereits
+    /// `depreciation(forYear:)` selbst auf das Laufzeitende; bei Herstellungskosten
+    /// (`usesBuildingAfaRate`, ohne eigenes Enddatum – siehe `depreciation(forYear:)`) greift erst
+    /// diese Deckelung, analog zu `Property.cumulativeBuildingAfA`.
+    func cumulativeDepreciation(uptoYear year: Int) -> Double {
+        let startYear = Calendar.current.component(.year, from: placedInServiceDate)
+        guard year >= startYear else { return 0 }
+        var sum = 0.0
+        for y in startYear...year { sum += depreciation(forYear: y) }
+        return min(depreciationBasis, sum)
+    }
+
+    /// Restbuchwert nach der kumulierten Abschreibung bis einschließlich des angegebenen Jahres.
+    func remainingDepreciationBookValue(afterYear year: Int) -> Double {
+        max(0, depreciationBasis - cumulativeDepreciation(uptoYear: year))
+    }
 }

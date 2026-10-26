@@ -290,6 +290,29 @@ final class TaxCalculationTests: XCTestCase {
         XCTAssertEqual(property.totalAfa(forYear: 2023), 5_300, accuracy: 0.01)
     }
 
+    /// Herstellungskosten (`usesBuildingAfaRate`) haben laut `depreciation(forYear:)` bewusst kein
+    /// eigenes Laufzeitende (wie die Gebäude-AfA selbst) – ohne die Deckelung in
+    /// `cumulativeDepreciation(uptoYear:)` würde die kumulierte Summe bei einem weit in der Zukunft
+    /// liegenden Jahr über die Bemessungsgrundlage hinauswachsen (gleicher Fehlerfall wie bei der
+    /// Gebäude-AfA-Jahresreihe, siehe `testCumulativeBuildingAfaCapsAtBuildingValueAcrossManyYears`).
+    func testCumulativeDepreciationCapsAtBasisForBuildingRateAssets() {
+        let property = Property(purchasePrice: 300_000, purchaseDate: calendarDate(2000, 1, 1), landValue: 60_000, constructionYear: 1998)
+        let asset = DepreciableAsset(name: "Dachsanierung", category: .improvement, cost: 24_000, placedInServiceDate: calendarDate(2000, 1, 1))
+        asset.property = property
+        context.insert(property)
+        context.insert(asset)
+
+        // 2 %/Jahr von 24.000 € → nach 50 Jahren vollständig abgeschrieben.
+        XCTAssertEqual(asset.cumulativeDepreciation(uptoYear: 2049), 24_000, accuracy: 0.01)
+        XCTAssertEqual(asset.remainingDepreciationBookValue(afterYear: 2049), 0, accuracy: 0.01)
+
+        // Weit darüber hinaus darf die Summe nicht über die Bemessungsgrundlage hinauswachsen, auch
+        // wenn `depreciation(forYear:)` für sich genommen weiterhin den festen Jahresbetrag liefert.
+        XCTAssertEqual(asset.depreciation(forYear: 2080), 480, accuracy: 0.01)
+        XCTAssertEqual(asset.cumulativeDepreciation(uptoYear: 2080), 24_000, accuracy: 0.01)
+        XCTAssertEqual(asset.remainingDepreciationBookValue(afterYear: 2080), 0, accuracy: 0.01)
+    }
+
     // MARK: - Zinsen/Tilgung, Werbungskosten
 
     func testPrincipalRepaymentIsNotCountedAsDeductibleInterest() {
