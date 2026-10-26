@@ -65,7 +65,8 @@ struct UnitDetailView: View {
                     Text("Keine Möblierung erfasst.")
                         .foregroundStyle(.secondary)
                 }
-                ForEach(unit.depreciableAssets ?? []) { asset in
+                let assets = unit.depreciableAssets ?? []
+                ForEach(assets) { asset in
                     Button {
                         assetToEdit = asset
                     } label: {
@@ -80,7 +81,7 @@ struct UnitDetailView: View {
                         }
                     }
                 }
-                .onDelete(perform: deleteAssets)
+                .onDelete { offsets in deleteAssets(assets, at: offsets) }
 
                 Button {
                     showingAddAssetSheet = true
@@ -140,8 +141,10 @@ struct UnitDetailView: View {
         }
     }
 
-    private func deleteAssets(at offsets: IndexSet) {
-        guard let assets = unit.depreciableAssets else { return }
+    /// Nimmt die beim Rendern tatsächlich angezeigte Reihenfolge entgegen, statt
+    /// `unit.depreciableAssets` ein zweites Mal selbst abzufragen – `ForEach` und dieser Aufruf
+    /// teilen sich dieselbe, einmalig berechnete Liste.
+    private func deleteAssets(_ assets: [DepreciableAsset], at offsets: IndexSet) {
         for index in offsets {
             modelContext.delete(assets[index])
         }

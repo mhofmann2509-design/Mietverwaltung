@@ -228,11 +228,12 @@ struct PropertyDetailView: View {
         }
 
         Section("Einheiten") {
-            if (property.units ?? []).isEmpty {
+            let units = property.units ?? []
+            if units.isEmpty {
                 Text("Noch keine Einheiten angelegt.")
                     .foregroundStyle(.secondary)
             }
-            ForEach(property.units ?? []) { unit in
+            ForEach(units) { unit in
                 NavigationLink(value: unit) {
                     VStack(alignment: .leading) {
                         Text(unit.name.isEmpty ? "Einheit" : unit.name)
@@ -248,7 +249,7 @@ struct PropertyDetailView: View {
                     }
                 }
             }
-            .onDelete(perform: deleteUnits)
+            .onDelete { offsets in deleteUnits(units, at: offsets) }
 
             Button {
                 showingAddUnitSheet = true
@@ -543,28 +544,36 @@ struct PropertyDetailView: View {
         ForEach(betriebskostenEntriesForSelectedYear) { entry in
             switch entry {
             case .actual(let statement):
+                // Einmal berechnet und sowohl für die Anzeige als auch fürs Löschen verwendet,
+                // statt denselben filter/sorted-Ausdruck doppelt auszuwerten – sonst könnten
+                // Anzeige- und Lösch-Reihenfolge bei künftigen Änderungen auseinanderlaufen und
+                // beim Wegwischen die falsche Position träfen.
+                let apportionable = (statement.lineItems ?? []).filter { $0.isApportionable }.sorted { $0.costType < $1.costType }
+                let nonApportionable = (statement.lineItems ?? []).filter { !$0.isApportionable }.sorted { $0.costType < $1.costType }
                 betriebskostenSection(
                     headerText: "Betriebskosten",
-                    apportionableItems: (statement.lineItems ?? []).filter { $0.isApportionable }.sorted { $0.costType < $1.costType },
-                    nonApportionableItems: (statement.lineItems ?? []).filter { !$0.isApportionable }.sorted { $0.costType < $1.costType },
+                    apportionableItems: apportionable,
+                    nonApportionableItems: nonApportionable,
                     propertyTaxAmount: statement.propertyTaxAmount,
                     totalApportionableCosts: statement.totalApportionableCosts,
                     nonApportionableTotal: statement.nonApportionableLineItemsTotal,
-                    onDeleteApportionable: { offsets in deleteUtilityLineItems((statement.lineItems ?? []).filter { $0.isApportionable }.sorted { $0.costType < $1.costType }, at: offsets) },
-                    onDeleteNonApportionable: { offsets in deleteUtilityLineItems((statement.lineItems ?? []).filter { !$0.isApportionable }.sorted { $0.costType < $1.costType }, at: offsets) },
+                    onDeleteApportionable: { offsets in deleteUtilityLineItems(apportionable, at: offsets) },
+                    onDeleteNonApportionable: { offsets in deleteUtilityLineItems(nonApportionable, at: offsets) },
                     onEdit: { statementToEdit = statement },
                     tenantDistributionTarget: statement
                 )
             case .forecast(let plan):
+                let apportionable = (plan.lineItems ?? []).filter { $0.isApportionable }.sorted { $0.costType < $1.costType }
+                let nonApportionable = (plan.lineItems ?? []).filter { !$0.isApportionable }.sorted { $0.costType < $1.costType }
                 betriebskostenSection(
                     headerText: "Betriebskosten (Wirtschaftsplan/Prognose)",
-                    apportionableItems: (plan.lineItems ?? []).filter { $0.isApportionable }.sorted { $0.costType < $1.costType },
-                    nonApportionableItems: (plan.lineItems ?? []).filter { !$0.isApportionable }.sorted { $0.costType < $1.costType },
+                    apportionableItems: apportionable,
+                    nonApportionableItems: nonApportionable,
                     propertyTaxAmount: plan.propertyTaxAmount,
                     totalApportionableCosts: plan.totalApportionableCosts,
                     nonApportionableTotal: plan.nonApportionableLineItemsTotal,
-                    onDeleteApportionable: { offsets in deleteWirtschaftsplanLineItems((plan.lineItems ?? []).filter { $0.isApportionable }.sorted { $0.costType < $1.costType }, at: offsets) },
-                    onDeleteNonApportionable: { offsets in deleteWirtschaftsplanLineItems((plan.lineItems ?? []).filter { !$0.isApportionable }.sorted { $0.costType < $1.costType }, at: offsets) },
+                    onDeleteApportionable: { offsets in deleteWirtschaftsplanLineItems(apportionable, at: offsets) },
+                    onDeleteNonApportionable: { offsets in deleteWirtschaftsplanLineItems(nonApportionable, at: offsets) },
                     onEdit: { planToEdit = plan },
                     tenantDistributionTarget: nil
                 )
@@ -954,8 +963,10 @@ struct PropertyDetailView: View {
         }
     }
 
-    private func deleteUnits(at offsets: IndexSet) {
-        guard let units = property.units else { return }
+    /// Nimmt die beim Rendern der Liste tatsächlich angezeigte Einheiten-Reihenfolge entgegen,
+    /// statt `property.units` ein zweites Mal (und potenziell in anderer Reihenfolge) selbst
+    /// abzufragen – `ForEach` und dieser Aufruf teilen sich dieselbe, einmalig berechnete Liste.
+    private func deleteUnits(_ units: [Unit], at offsets: IndexSet) {
         for index in offsets {
             modelContext.delete(units[index])
         }
