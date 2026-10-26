@@ -77,6 +77,27 @@ final class TaxCalculationTests: XCTestCase {
         XCTAssertEqual(property.estimatedTaxableResult(forYear: 2026), 0)
     }
 
+    /// Ohne Kaufdatum (nur Baujahr erfasst) lieferte `cumulativeBuildingAfA` zuvor keine echte
+    /// Summe über mehrere Jahre, sondern nur den Betrag eines einzelnen Jahres – im Widerspruch zur
+    /// Gebäudeabschreibungs-PDF (`PropertyDetailView.gebaeudeAfaReportURL`), die für denselben Fall
+    /// bereits korrekt ab dem Baujahr akkumulierte. Fund aus einer gezielten Suche nach weiteren
+    /// Fällen desselben Musters wie die beiden bereits behobenen AfA-Deckelungsbugs.
+    func testCumulativeBuildingAfaFallsBackToConstructionYearWithoutPurchaseDate() {
+        let property = Property(purchasePrice: 300_000, landValue: 50_000, constructionYear: 1990)
+        XCTAssertNil(property.purchaseDate)
+        XCTAssertEqual(property.buildingValue, 250_000, accuracy: 0.01)
+        XCTAssertEqual(property.afaRatePercent, 2.0)
+
+        // 15 Jahre (1990...2004) à 5.000 €/Jahr = 75.000 € – wie im PDF-Report, nicht nur 5.000 €
+        // für ein einzelnes Jahr.
+        XCTAssertEqual(property.cumulativeBuildingAfA(uptoYear: 2004), 75_000, accuracy: 0.01)
+        XCTAssertEqual(property.remainingBuildingBookValue(afterYear: 2004), 175_000, accuracy: 0.01)
+
+        // Deckelung greift weiterhin: nach 50 Jahren (250.000 / 5.000) vollständig abgeschrieben.
+        XCTAssertEqual(property.cumulativeBuildingAfA(uptoYear: 2039), 250_000, accuracy: 0.01)
+        XCTAssertEqual(property.remainingBuildingBookValue(afterYear: 2039), 0, accuracy: 0.01)
+    }
+
     func testBuildingAfaRateByConstructionYear() {
         XCTAssertEqual(Property(constructionYear: 2024).defaultAfaRatePercent, 3.0)
         XCTAssertEqual(Property(constructionYear: 1920).defaultAfaRatePercent, 2.5)

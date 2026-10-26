@@ -827,14 +827,20 @@ struct PropertyDetailView: View {
             ?? property.constructionYear
             ?? calendar.component(.year, from: .now)
 
+        // Nutzt dieselben, bereits getesteten Methoden wie der AfA-Bericht in TaxReportPDFBuilder
+        // (cumulativeBuildingAfA/remainingBuildingBookValue), statt die Kumulierung hier erneut
+        // lokal nachzubilden – sonst drohen abweichende Zahlen zwischen beiden Darstellungen,
+        // insbesondere ohne erfasstes Kaufdatum (dort war `cumulativeBuildingAfA` zuvor kein
+        // echter Kumulierungs-, sondern ein reiner Einzeljahreswert).
         var rows: [GebaeudeAfaReportDocument.YearRow] = []
-        var cumulative = 0.0
+        var previousCumulative = 0.0
         for offset in 0..<15 {
             let year = startYear + offset
-            let afaForYear = min(property.buildingAfA(forYear: year), max(0, property.buildingValue - cumulative))
+            let cumulative = property.cumulativeBuildingAfA(uptoYear: year)
+            let afaForYear = cumulative - previousCumulative
             guard afaForYear > 0 else { break }
-            cumulative += afaForYear
-            rows.append(.init(year: year, afaAmount: afaForYear, cumulativeAfa: cumulative, remainingBookValue: max(0, property.buildingValue - cumulative)))
+            previousCumulative = cumulative
+            rows.append(.init(year: year, afaAmount: afaForYear, cumulativeAfa: cumulative, remainingBookValue: property.remainingBuildingBookValue(afterYear: year)))
         }
 
         let document = GebaeudeAfaReportDocument(

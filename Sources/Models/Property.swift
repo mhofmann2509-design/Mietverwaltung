@@ -294,11 +294,20 @@ final class Property {
         return annualBuildingAfA
     }
 
-    /// Kumulierte Gebäude-AfA von der Anschaffung bis einschließlich des angegebenen Jahres –
-    /// Richtwert für den Restbuchwert, ersetzt keine Anlagenbuchhaltung.
+    /// Erstes Jahr, ab dem eine kumulierte AfA sinnvoll gezählt werden kann: Kaufdatum, sonst
+    /// ersatzweise Baujahr, sonst das laufende Jahr – ohne Kaufdatum liefert `buildingAfA(forYear:)`
+    /// für jedes Jahr denselben vollen Jahresbetrag (kein Anschaffungsjahr zum Anteiligrechnen), ein
+    /// Anker ist hier also nur zum Abgrenzen der Summe nötig, nicht zur Monatsanteiligkeit.
+    private var buildingAfaAccumulationStartYear: Int {
+        if let purchaseDate { return Calendar.current.component(.year, from: purchaseDate) }
+        return constructionYear ?? Calendar.current.component(.year, from: .now)
+    }
+
+    /// Kumulierte Gebäude-AfA von der Anschaffung (oder ersatzweise ab dem Baujahr) bis
+    /// einschließlich des angegebenen Jahres – Richtwert für den Restbuchwert, ersetzt keine
+    /// Anlagenbuchhaltung.
     func cumulativeBuildingAfA(uptoYear year: Int) -> Double {
-        guard let purchaseDate else { return buildingAfA(forYear: year) }
-        let startYear = Calendar.current.component(.year, from: purchaseDate)
+        let startYear = buildingAfaAccumulationStartYear
         guard year >= startYear else { return 0 }
         var sum = 0.0
         for y in startYear...year { sum += buildingAfA(forYear: y) }
