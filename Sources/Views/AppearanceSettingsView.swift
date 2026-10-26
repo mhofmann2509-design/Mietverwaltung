@@ -5,6 +5,7 @@ import SwiftUI
 /// `NavigationSplitView` bei einem Wechsel per `.id(...)` neu aufbaut.
 struct AppearanceSettingsView: View {
     @ObservedObject private var store = AppearanceStore.shared
+    @ObservedObject private var reportLayoutStore = TaxReportLayoutStore.shared
 
     var body: some View {
         List {
@@ -42,6 +43,42 @@ struct AppearanceSettingsView: View {
                 Text("Erscheinungsbild")
             } footer: {
                 Text("Gilt sofort für die gesamte App – Übersicht, Immobilien, Finanzen und Steuerbereich.")
+            }
+
+            Section {
+                ForEach(TaxReportLayoutStyle.allCases) { style in
+                    Button {
+                        reportLayoutStore.style = style
+                    } label: {
+                        HStack(spacing: Theme.spacingM) {
+                            Image(systemName: style == .formularraster ? "tablecells" : "chart.bar.doc.horizontal")
+                                .font(.body.weight(.semibold))
+                                .foregroundStyle(Theme.accent)
+                                .frame(width: 16)
+                            VStack(alignment: .leading, spacing: 3) {
+                                Text(style.label)
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(.primary)
+                                Text(style.subtitle)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            if reportLayoutStore.style == style {
+                                Image(systemName: "checkmark")
+                                    .font(.body.weight(.semibold))
+                                    .foregroundStyle(Theme.accent)
+                            }
+                        }
+                        .contentShape(Rectangle())
+                        .padding(.vertical, 4)
+                    }
+                    .buttonStyle(.plain)
+                }
+            } header: {
+                Text("Steuerreport-Layout")
+            } footer: {
+                Text("Gilt für neu erzeugte PDF-Steuerreports (Erstanlage, laufender Betrieb, 15-%-Grenze, AfA-Bericht) – unabhängig vom Erscheinungsbild oben, da diese Dokumente für das Finanzamt bestimmt sind.")
             }
         }
         .themedScrollBackground()

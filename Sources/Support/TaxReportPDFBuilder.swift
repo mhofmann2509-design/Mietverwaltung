@@ -62,6 +62,18 @@ enum TaxReportPDFBuilder {
             guard start < rows.count else { return [] }
             return Array(rows[start..<min(start + maxRowsPerPage, rows.count)])
         }
+
+        /// Laufende Nummer, mit der die erste normale (nicht „##“-/„**“-markierte) Zeile auf dieser
+        /// Seite beginnt – für die Vorlage „Formular-Raster“, deren Nr.-Spalte über Seitenumbrüche
+        /// hinweg weiterzählt statt auf jeder Fortsetzungsseite wieder bei 1 zu beginnen.
+        func startingRowNumber(forPage pageIndex: Int) -> Int {
+            let start = min(pageIndex * maxRowsPerPage, rows.count)
+            let precedingNormalRows = rows.prefix(start).filter {
+                let first = $0.first ?? ""
+                return !first.hasPrefix("##") && !first.hasPrefix("**")
+            }
+            return precedingNormalRows.count + 1
+        }
     }
 
     /// Markiert eine Tabellenzelle mit einer Statusfarbe (siehe `TaxPDFChapterPage`-Rendering) –
@@ -175,6 +187,7 @@ enum TaxReportPDFBuilder {
                         progressTone: chapter.progressTone,
                         columnHeaders: chapter.columnHeaders,
                         rows: rowsForPage,
+                        startingRowNumber: chapter.startingRowNumber(forPage: pageIndex),
                         pageNumber: currentPage,
                         totalPages: totalPages
                     )
@@ -596,6 +609,31 @@ enum TaxReportPDFBuilder {
 
 // MARK: - Seiten
 
+/// Gedeckte Akzentfarbe für die Vorlage „Ergebnis zuerst" – bewusst nicht die App-Akzentfarbe
+/// (`Theme.accent`), da PDFs fürs Finanzamt unabhängig vom App-weiten Erscheinungsbild eine eigene,
+/// gleichbleibend seriöse Dokumentoptik behalten (siehe `TaxReportLayoutStyle`).
+private let taxReportAccent = Color(red: 0.227, green: 0.353, blue: 0.420)
+
+/// Grobe Heuristik, ob eine Zellen-Zeichenkette ein Betrag/Prozentwert ist (endet auf „€"/„%" oder
+/// besteht nur aus Ziffern/Zahlformat-Zeichen) – steuert Rechtsbündigkeit/Zifferfont in beiden
+/// Layout-Vorlagen, ohne sich auf Spaltenüberschriften verlassen zu müssen (die je Kapitel stark
+/// variieren, von „Betrag" bis „Bemessungsgrdl." oder „Restbuchwert").
+private func isNumericLikeCell(_ text: String) -> Bool {
+    let trimmed = text.trimmingCharacters(in: .whitespaces)
+    guard !trimmed.isEmpty else { return false }
+    if trimmed.hasSuffix("€") || trimmed.hasSuffix("%") { return true }
+    return trimmed.allSatisfy { $0.isNumber || ",.-".contains($0) }
+}
+
+/// Zerlegt eine Zelle in Anzeigetext + optionalen Farbton anhand des „§tone§…"-Präfixes (siehe
+/// `TaxReportPDFBuilder.tonedCell`) – von beiden Kapitel-Layouts geteilt.
+private func parsedTaxCell(_ cell: String) -> (text: String, tone: Theme.StatusTone?) {
+    if cell.hasPrefix("§good§") { return (String(cell.dropFirst(6)), .good) }
+    if cell.hasPrefix("§warn§") { return (String(cell.dropFirst(6)), .warning) }
+    if cell.hasPrefix("§bad§") { return (String(cell.dropFirst(5)), .critical) }
+    return (cell, nil)
+}
+
 private struct TaxPDFHeader: View {
     let propertyLabel: String
     let kind: TaxReportKind
@@ -633,6 +671,8 @@ private struct TaxPDFCoverPage: View {
     let pageNumber: Int
     let totalPages: Int
 
+    private var layout: TaxReportLayoutStyle { TaxReportLayoutStore.shared.style }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             Spacer(minLength: 60)
@@ -643,29 +683,19 @@ private struct TaxPDFCoverPage: View {
                 .foregroundStyle(.secondary)
                 .padding(.top, 6)
 
-            Rectangle().fill(Color.black).frame(height: 1).padding(.top, 20)
+            Rectangle().fill(layout == .ergebnisZuerst ? taxReportAccent : Color.black)
+                .frame(height: layout == .formularraster ? 2 : 1)
+                .padding(.top, 20)
 
-            Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 10, verticalSpacing: 6) {
-                GridRow {
-                    Text("Immobilie").fontWeight(.semibold)
-                    Text(property.name.isEmpty ? property.address : property.name)
-                }
-                GridRow {
-                    Text("Adresse").fontWeight(.semibold)
-                    Text(property.address)
-                }
-                if let taxYear = kind.taxYear {
-                    GridRow {
-                        Text("Steuerjahr").fontWeight(.semibold)
-                        Text(String(taxYear))
-                    }
-                }
-                GridRow {
-                    Text("Erstellt am").fontWeight(.semibold)
-                    Text(generatedAt.asShortDate)
+            Group {
+                if layout == .formularraster {
+                    coverMetaGrid
+                        .padding(14)
+                        .overlay(Rectangle().stroke(Color.black, lineWidth: 1))
+                } else {
+                    coverMetaGrid
                 }
             }
-            .font(.system(size: 12))
             .padding(.top, 28)
 
             Spacer()
@@ -682,6 +712,31 @@ private struct TaxPDFCoverPage: View {
         .background(Color.white)
         .foregroundStyle(Color.black)
     }
+
+    @ViewBuilder
+    private var coverMetaGrid: some View {
+        Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 10, verticalSpacing: 6) {
+            GridRow {
+                Text("Immobilie").fontWeight(.semibold)
+                Text(property.name.isEmpty ? property.address : property.name)
+            }
+            GridRow {
+                Text("Adresse").fontWeight(.semibold)
+                Text(property.address)
+            }
+            if let taxYear = kind.taxYear {
+                GridRow {
+                    Text("Steuerjahr").fontWeight(.semibold)
+                    Text(String(taxYear)).font(.system(size: 12, design: layout == .formularraster ? .monospaced : .default))
+                }
+            }
+            GridRow {
+                Text("Erstellt am").fontWeight(.semibold)
+                Text(generatedAt.asShortDate).font(.system(size: 12, design: layout == .formularraster ? .monospaced : .default))
+            }
+        }
+        .font(.system(size: 12))
+    }
 }
 
 private struct TaxPDFTOCPage: View {
@@ -691,20 +746,30 @@ private struct TaxPDFTOCPage: View {
     let pageNumber: Int
     let totalPages: Int
 
+    private var layout: TaxReportLayoutStyle { TaxReportLayoutStore.shared.style }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             TaxPDFHeader(propertyLabel: propertyLabel, kind: kind)
             Text("Inhaltsverzeichnis")
                 .font(.system(size: 19, weight: .bold))
                 .padding(.top, 10)
-            Rectangle().fill(Color.black).frame(height: 1).padding(.top, 10)
+            Rectangle().fill(layout == .ergebnisZuerst ? taxReportAccent : Color.black)
+                .frame(height: layout == .formularraster ? 2 : 1)
+                .padding(.top, 10)
 
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in
                     HStack {
                         Text("\(index + 1). \(entry.title)")
                         Spacer()
-                        Text(String(entry.page))
+                        Text(String(entry.page)).font(.system(size: 12, design: layout == .formularraster ? .monospaced : .default))
+                    }
+                    .padding(.vertical, layout == .formularraster ? 7 : 5)
+                    .overlay(alignment: .bottom) {
+                        if layout == .formularraster {
+                            Rectangle().fill(Color.black.opacity(0.3)).frame(height: 0.6)
+                        }
                     }
                 }
             }
@@ -731,79 +796,21 @@ private struct TaxPDFChapterPage: View {
     var progressTone: Theme.StatusTone = .neutral
     let columnHeaders: [String]
     let rows: [[String]]
+    var startingRowNumber: Int = 1
     let pageNumber: Int
     let totalPages: Int
 
-    /// Zerlegt eine Zelle in Anzeigetext + optionalen Farbton anhand des „§tone§…“-Präfixes
-    /// (siehe `TaxReportPDFBuilder.tonedCell`).
-    private func parsedCell(_ cell: String) -> (text: String, tone: Theme.StatusTone?) {
-        if cell.hasPrefix("§good§") { return (String(cell.dropFirst(6)), .good) }
-        if cell.hasPrefix("§warn§") { return (String(cell.dropFirst(6)), .warning) }
-        if cell.hasPrefix("§bad§") { return (String(cell.dropFirst(5)), .critical) }
-        return (cell, nil)
-    }
+    private var layout: TaxReportLayoutStyle { TaxReportLayoutStore.shared.style }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             TaxPDFHeader(propertyLabel: propertyLabel, kind: kind)
-            Text(title)
-                .font(.system(size: 17, weight: .bold))
-                .padding(.top, 10)
-            Rectangle().fill(Color.black).frame(height: 1).padding(.top, 8)
-
-            if !introLines.isEmpty {
-                VStack(alignment: .leading, spacing: 3) {
-                    ForEach(introLines, id: \.self) { line in
-                        Text(line).font(.system(size: 9)).foregroundStyle(.secondary)
-                    }
-                }
-                .padding(.top, 8)
+            switch layout {
+            case .ergebnisZuerst:
+                ergebnisZuerstContent
+            case .formularraster:
+                formularrasterContent
             }
-
-            if !summaryLines.isEmpty {
-                VStack(alignment: .leading, spacing: 4) {
-                    ForEach(summaryLines, id: \.self) { line in
-                        Text(line).font(.system(size: 11))
-                    }
-                }
-                .padding(.top, 10)
-            }
-
-            if let progressFraction {
-                UtilizationBar(fraction: progressFraction, tone: progressTone, height: 10)
-                    .padding(.top, 10)
-            }
-
-            if !columnHeaders.isEmpty {
-                Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 8, verticalSpacing: 4) {
-                    GridRow {
-                        ForEach(columnHeaders, id: \.self) { header in
-                            Text(header).fontWeight(.semibold)
-                        }
-                    }
-                    GridRow { Divider().gridCellColumns(max(columnHeaders.count, 1)) }
-                    ForEach(Array(rows.enumerated()), id: \.offset) { _, row in
-                        let isSection = row.first?.hasPrefix("##") == true
-                        let isEmphasized = row.first?.hasPrefix("**") == true
-                        let displayRow = row.map { cell -> String in
-                            if cell.hasPrefix("##") { return String(cell.dropFirst(2)) }
-                            if cell.hasPrefix("**") { return String(cell.dropFirst(2)) }
-                            return cell
-                        }
-                        GridRow {
-                            ForEach(Array(displayRow.enumerated()), id: \.offset) { _, cell in
-                                let parsed = parsedCell(cell)
-                                Text(parsed.text)
-                                    .fontWeight(isSection || isEmphasized ? .bold : .regular)
-                                    .foregroundStyle(parsed.tone?.color ?? .primary)
-                            }
-                        }
-                    }
-                }
-                .font(.system(size: 9))
-                .padding(.top, 10)
-            }
-
             Spacer(minLength: 0)
             TaxPDFFooter(pageNumber: pageNumber, totalPages: totalPages)
         }
@@ -811,5 +818,306 @@ private struct TaxPDFChapterPage: View {
         .frame(width: TaxReportPDFBuilder.pageSize.width, height: TaxReportPDFBuilder.pageSize.height, alignment: .top)
         .background(Color.white)
         .foregroundStyle(Color.black)
+    }
+
+    // MARK: Ergebnis zuerst
+
+    /// Letzte „**"-markierte Zeile (der Abschluss-/Ergebniswert eines Kapitels) als (Label, Wert) –
+    /// nil, wenn das Kapitel keine solche Zeile hat (reine Belegtabellen o.ä.).
+    private var headline: (label: String, value: String)? {
+        guard let lastTotal = rows.last(where: { $0.first?.hasPrefix("**") == true }) else { return nil }
+        let label = String((lastTotal.first ?? "").dropFirst(2))
+        var value = lastTotal.count > 1 ? (lastTotal.last ?? "") : ""
+        if value.hasPrefix("**") { value = String(value.dropFirst(2)) }
+        return (label, value)
+    }
+
+    /// Fallback-Kopfzeile für Kapitel ohne Tabelle (nur `summaryLines`, z.B. AfA-Satz-Herleitung):
+    /// die erste nichtleere Zusammenfassungszeile.
+    private var fallbackHeadlineLine: String? {
+        guard headline == nil, rows.isEmpty else { return nil }
+        return summaryLines.first(where: { !$0.isEmpty })
+    }
+
+    private var remainingSummaryLines: [String] {
+        guard let line = fallbackHeadlineLine, let idx = summaryLines.firstIndex(of: line) else { return summaryLines }
+        var copy = summaryLines
+        copy.remove(at: idx)
+        return copy
+    }
+
+    private var tableRowsExcludingHeadline: [[String]] {
+        guard let lastIndex = rows.lastIndex(where: { $0.first?.hasPrefix("**") == true }) else { return rows }
+        var copy = rows
+        copy.remove(at: lastIndex)
+        return copy
+    }
+
+    @ViewBuilder
+    private func resultBox(label: String, value: String) -> some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(label.uppercased())
+                .font(.system(size: 10, weight: .semibold))
+                .foregroundStyle(taxReportAccent)
+                .tracking(0.3)
+            if !value.isEmpty {
+                Text(value)
+                    .font(.system(size: 27, weight: .heavy, design: .rounded))
+            }
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(18)
+        .background(taxReportAccent.opacity(0.07))
+        .overlay(RoundedRectangle(cornerRadius: 6).stroke(taxReportAccent, lineWidth: 1.1))
+    }
+
+    @ViewBuilder
+    private func highlightedLine(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 11.5, weight: .semibold))
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(14)
+            .background(taxReportAccent.opacity(0.07))
+            .overlay(RoundedRectangle(cornerRadius: 6).stroke(taxReportAccent, lineWidth: 1.1))
+    }
+
+    @ViewBuilder
+    private var ergebnisZuerstContent: some View {
+        Text(title)
+            .font(.system(size: 20, weight: .bold))
+            .padding(.top, 10)
+
+        if !introLines.isEmpty {
+            VStack(alignment: .leading, spacing: 3) {
+                ForEach(introLines, id: \.self) { line in
+                    Text(line).font(.system(size: 9)).foregroundStyle(.secondary)
+                }
+            }
+            .padding(.top, 6)
+        }
+
+        if let headline {
+            resultBox(label: headline.label, value: headline.value).padding(.top, 16)
+        } else if let fallbackHeadlineLine {
+            highlightedLine(fallbackHeadlineLine).padding(.top, 16)
+        }
+
+        if !remainingSummaryLines.isEmpty {
+            VStack(alignment: .leading, spacing: 4) {
+                ForEach(Array(remainingSummaryLines.enumerated()), id: \.offset) { _, line in
+                    if line.isEmpty {
+                        Color.clear.frame(height: 6)
+                    } else {
+                        Text(line).font(.system(size: 11))
+                    }
+                }
+            }
+            .padding(.top, 14)
+        }
+
+        if let progressFraction {
+            UtilizationBar(fraction: progressFraction, tone: progressTone, height: 10)
+                .padding(.top, 10)
+        }
+
+        if !columnHeaders.isEmpty {
+            Text("HERLEITUNG")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(taxReportAccent)
+                .tracking(0.8)
+                .padding(.top, 20)
+            ergebnisZuerstTable
+                .padding(.top, 8)
+        }
+    }
+
+    @ViewBuilder
+    private var ergebnisZuerstTable: some View {
+        Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 8, verticalSpacing: 6) {
+            GridRow {
+                ForEach(Array(columnHeaders.enumerated()), id: \.offset) { _, header in
+                    Text(header)
+                        .font(.system(size: 9.5, weight: .semibold))
+                        .foregroundStyle(taxReportAccent)
+                }
+            }
+            GridRow {
+                Rectangle().fill(taxReportAccent).frame(height: 1.4).gridCellColumns(max(columnHeaders.count, 1))
+            }
+            ForEach(Array(tableRowsExcludingHeadline.enumerated()), id: \.offset) { _, row in
+                let isSection = row.first?.hasPrefix("##") == true
+                let isEmphasized = row.first?.hasPrefix("**") == true
+                let displayRow = row.map { cell -> String in
+                    if cell.hasPrefix("##") { return String(cell.dropFirst(2)) }
+                    if cell.hasPrefix("**") { return String(cell.dropFirst(2)) }
+                    return cell
+                }
+                if isSection {
+                    GridRow {
+                        Text(displayRow.first ?? "")
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(taxReportAccent)
+                            .padding(.top, 6)
+                            .gridCellColumns(max(columnHeaders.count, 1))
+                    }
+                } else {
+                    GridRow {
+                        ForEach(Array(displayRow.enumerated()), id: \.offset) { _, cell in
+                            let parsed = parsedTaxCell(cell)
+                            Text(parsed.text)
+                                .font(.system(size: 10, weight: isEmphasized ? .bold : .regular, design: isNumericLikeCell(parsed.text) ? .monospaced : .default))
+                                .foregroundStyle(parsed.tone?.color ?? .primary)
+                        }
+                    }
+                }
+            }
+        }
+        .font(.system(size: 10))
+    }
+
+    // MARK: Formular-Raster
+
+    private enum FormularrasterRowKind { case normal, section, total }
+
+    private var numberedRows: [(number: Int?, kind: FormularrasterRowKind, row: [String])] {
+        var counter = startingRowNumber - 1
+        var result: [(Int?, FormularrasterRowKind, [String])] = []
+        for row in rows {
+            let first = row.first ?? ""
+            if first.hasPrefix("##") {
+                result.append((nil, .section, row))
+            } else if first.hasPrefix("**") {
+                result.append((nil, .total, row))
+            } else {
+                counter += 1
+                result.append((counter, .normal, row))
+            }
+        }
+        return result
+    }
+
+    @ViewBuilder
+    private func formularrasterCell(_ text: String, bold: Bool = false, fill: Bool = false, tone: Theme.StatusTone? = nil, isHeaderBar: Bool = false) -> some View {
+        let numeric = isNumericLikeCell(text)
+        Text(text)
+            .font(.system(size: 9, weight: (bold || isHeaderBar) ? .bold : .regular, design: numeric ? .monospaced : .default))
+            .foregroundStyle(isHeaderBar ? Color.white : (tone?.color ?? Color.black))
+            .frame(maxWidth: .infinity, alignment: numeric ? .trailing : .leading)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 5)
+            .background(isHeaderBar ? Color.black : (fill ? Color.black.opacity(0.08) : Color.clear))
+            .overlay(alignment: .trailing) { Rectangle().fill(Color.black).frame(width: 0.6) }
+            .overlay(alignment: .bottom) { Rectangle().fill(Color.black).frame(height: 0.6) }
+    }
+
+    @ViewBuilder
+    private func formularrasterSectionBar(_ text: String) -> some View {
+        Text(text)
+            .font(.system(size: 9.5, weight: .bold))
+            .foregroundStyle(Color.white)
+            .tracking(0.6)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 7)
+            .padding(.vertical, 6)
+            .background(Color.black)
+    }
+
+    @ViewBuilder
+    private var formularrasterSummaryBox: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            ForEach(Array(summaryLines.enumerated()), id: \.offset) { index, line in
+                if line.isEmpty {
+                    Color.clear.frame(height: 4)
+                } else {
+                    Text(line)
+                        .font(.system(size: 9.5, design: isNumericLikeCell(line) ? .monospaced : .default))
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .overlay(alignment: .bottom) {
+                            if index < summaryLines.count - 1 {
+                                Rectangle().fill(Color.black.opacity(0.25)).frame(height: 0.75)
+                            }
+                        }
+                }
+            }
+        }
+        .overlay(Rectangle().stroke(Color.black, lineWidth: 1))
+    }
+
+    @ViewBuilder
+    private var formularrasterTable: some View {
+        let colCount = columnHeaders.count + 1
+        Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
+            GridRow {
+                formularrasterCell("Nr.", isHeaderBar: true)
+                ForEach(Array(columnHeaders.enumerated()), id: \.offset) { _, header in
+                    formularrasterCell(header, isHeaderBar: true)
+                }
+            }
+            ForEach(Array(numberedRows.enumerated()), id: \.offset) { _, entry in
+                switch entry.kind {
+                case .section:
+                    GridRow {
+                        formularrasterSectionBar(entry.row.first.map { String($0.dropFirst(2)) } ?? "")
+                            .gridCellColumns(colCount)
+                    }
+                case .total:
+                    GridRow {
+                        formularrasterCell("", fill: true)
+                        ForEach(Array(entry.row.enumerated()), id: \.offset) { _, cell in
+                            let display = cell.hasPrefix("**") ? String(cell.dropFirst(2)) : cell
+                            formularrasterCell(display, bold: true, fill: true)
+                        }
+                    }
+                case .normal:
+                    GridRow {
+                        formularrasterCell(entry.number.map(String.init) ?? "")
+                        ForEach(Array(entry.row.enumerated()), id: \.offset) { _, cell in
+                            let parsed = parsedTaxCell(cell)
+                            formularrasterCell(parsed.text, tone: parsed.tone)
+                        }
+                    }
+                }
+            }
+        }
+        .overlay(Rectangle().stroke(Color.black, lineWidth: 1))
+    }
+
+    @ViewBuilder
+    private var formularrasterContent: some View {
+        HStack(alignment: .firstTextBaseline) {
+            Text(title)
+                .font(.system(size: 16, weight: .bold))
+            Spacer()
+            Text(kind.taxYear.map { "STEUERJAHR \($0)" } ?? "ERSTANLAGE")
+                .font(.system(size: 9, weight: .semibold, design: .monospaced))
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .overlay(Rectangle().stroke(Color.black, lineWidth: 1))
+        }
+        .padding(.top, 10)
+
+        if !introLines.isEmpty {
+            VStack(alignment: .leading, spacing: 3) {
+                ForEach(introLines, id: \.self) { line in
+                    Text(line).font(.system(size: 8.5)).foregroundStyle(.secondary)
+                }
+            }
+            .padding(.top, 8)
+        }
+
+        if !summaryLines.isEmpty {
+            formularrasterSummaryBox.padding(.top, 10)
+        }
+
+        if let progressFraction {
+            UtilizationBar(fraction: progressFraction, tone: progressTone, height: 10)
+                .padding(.top, 10)
+        }
+
+        if !columnHeaders.isEmpty {
+            formularrasterTable.padding(.top, 12)
+        }
     }
 }

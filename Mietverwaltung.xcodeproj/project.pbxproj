@@ -14,6 +14,7 @@
 		0B2A7DD94DD6A1CCE9659A90 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8C8388E3E1610A1ABD42677 /* Theme.swift */; };
 		149006CDCC73DE0417184CF8 /* Tenant.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB4BE5F2F31D58F8E5A6D1F6 /* Tenant.swift */; };
 		1550955B60F8771B0D4BF177 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A8F6CFF3B0D6787E87FAE158 /* Assets.xcassets */; };
+		18AD2C69063235E4240B0A8B /* TaxReportLayoutStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C3316E611F57E0281BAD5ED /* TaxReportLayoutStyle.swift */; };
 		1A109FA023AA511BD1873981 /* Unit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 841D4C09EAC98E6756C6CF65 /* Unit.swift */; };
 		1B382F0E3DFF882E60031657 /* TravelExpenseListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBCD2C4534EA4F0743C62FF0 /* TravelExpenseListView.swift */; };
 		1BD9669371DCEB2834240EB3 /* WirtschaftsplanStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2BEFF54123837DCCEB69F7 /* WirtschaftsplanStatement.swift */; };
@@ -133,6 +134,7 @@
 		BBBA6E6D76723A569C37860A /* TaxModulePropertyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7F171D1107AEDF464479133 /* TaxModulePropertyView.swift */; };
 		BC88F8698FD467E27CF4594C /* DocumentCameraScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24E214074D6DE94F4443707E /* DocumentCameraScanner.swift */; };
 		BF359D95F49BE4C6190BFF43 /* HomeOfficeAllocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F9B248F91EB9AA8801723E /* HomeOfficeAllocation.swift */; };
+		C1461C5009B6655DB6F8CA3D /* TaxReportLayoutStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C3316E611F57E0281BAD5ED /* TaxReportLayoutStyle.swift */; };
 		C2DC6BA63DF31323FD77F195 /* GesamtuebersichtReportDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = B704F83BB3F5986B7E6B6A17 /* GesamtuebersichtReportDocument.swift */; };
 		C41C876D7C8C84AC3CD3C88C /* Document.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0037A9A281C32343AE789F /* Document.swift */; };
 		C9FE4767C915720474D5C820 /* TenantDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E7F28433138B91BECA0312 /* TenantDetailView.swift */; };
@@ -238,6 +240,7 @@
 		54884C5C52A790E58AD5B9AA /* LineItemDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineItemDraft.swift; sourceTree = "<group>"; };
 		5845FDF7EBB418C15207892C /* Tenancy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tenancy.swift; sourceTree = "<group>"; };
 		5B12C5724FD446F6F412C964 /* PropertyListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PropertyListView.swift; sourceTree = "<group>"; };
+		5C3316E611F57E0281BAD5ED /* TaxReportLayoutStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxReportLayoutStyle.swift; sourceTree = "<group>"; };
 		5CEB60823677D155487F8CBD /* TenantListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TenantListView.swift; sourceTree = "<group>"; };
 		61223BEB3DB609036DF3D621 /* AllocationMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AllocationMethod.swift; sourceTree = "<group>"; };
 		646A2B4C8E9ECA138C689449 /* UtilityStatement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtilityStatement.swift; sourceTree = "<group>"; };
@@ -407,6 +410,7 @@
 				7BAB38F6D448CF9A8902B9A7 /* ReceiptTextExtractor.swift */,
 				942B2D4AFC75FAD97D91A909 /* RemindersEngine.swift */,
 				EA531BE01BFD6FCFF36F92BF /* TaxChecklistSeeder.swift */,
+				5C3316E611F57E0281BAD5ED /* TaxReportLayoutStyle.swift */,
 				BDDD89E2F999F4FC9E463CE0 /* TaxReportPDFBuilder.swift */,
 				D8C8388E3E1610A1ABD42677 /* Theme.swift */,
 				315AC0BA58663C43481DD6AC /* XLSXExporter.swift */,
@@ -728,6 +732,7 @@
 				02E134A7CE371B4B899A3783 /* TaxGlossaryView.swift in Sources */,
 				1CBCAB95A6FE0D795B26219B /* TaxModulePropertyView.swift in Sources */,
 				F06B427DF8CAF37B5C6F97F2 /* TaxModuleView.swift in Sources */,
+				18AD2C69063235E4240B0A8B /* TaxReportLayoutStyle.swift in Sources */,
 				F6655323346AEE5173DB6934 /* TaxReportPDFBuilder.swift in Sources */,
 				664D050B1B247C93A782A4C9 /* TaxTreatment.swift in Sources */,
 				ADCE780ACD64E72909374E41 /* Tenancy.swift in Sources */,
@@ -823,6 +828,7 @@
 				6ECB5A7B391651B757D90571 /* TaxGlossaryView.swift in Sources */,
 				BBBA6E6D76723A569C37860A /* TaxModulePropertyView.swift in Sources */,
 				51FCACA539CEDCB808A0DA24 /* TaxModuleView.swift in Sources */,
+				C1461C5009B6655DB6F8CA3D /* TaxReportLayoutStyle.swift in Sources */,
 				EF231FCC04BEA4AA12E6C3C8 /* TaxReportPDFBuilder.swift in Sources */,
 				FE08B503F2917EC96B7DEF5A /* TaxTreatment.swift in Sources */,
 				223619A072681125A71312FA /* Tenancy.swift in Sources */,
