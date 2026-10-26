@@ -276,7 +276,7 @@ struct PropertyDetailView: View {
                     )
                     if let cashFlowAfterTax = freeCashFlowAfterTax(forYear: selectedTaxYear) {
                         KPITile(
-                            title: "Cashflow nach Steuer \(String(selectedTaxYear))",
+                            title: "Freier Cashflow",
                             value: cashFlowAfterTax.asCurrency,
                             systemImage: cashFlowAfterTax >= 0 ? "checkmark.circle" : "exclamationmark.circle",
                             valueColor: cashFlowAfterTax >= 0 ? Theme.statusGood : Theme.statusCritical
@@ -442,31 +442,46 @@ struct PropertyDetailView: View {
                 }
 
                 Section {
+                    // Genau zwei Kennzahlen, nicht drei: „Freier Cashflow" ist hier bereits der
+                    // Cashflow nach Steuer (sofern ein Vermieterprofil mit Grenzsteuersatz
+                    // hinterlegt ist) – vorher gab es zusätzlich eine separate „Cashflow nach
+                    // Steuer"-Zeile, was wie eine dritte, eigenständige Größe wirkte. Die
+                    // Jahreszahl steht bereits einmal in der Abschnittsüberschrift/im
+                    // Betrachtungsjahr-Picker oben und wird hier bewusst nicht wiederholt.
                     let operativeCashFlow = property.operativeCashFlow(forYear: selectedTaxYear)
-                    LabeledContent("Operativer Cashflow \(String(selectedTaxYear))", value: operativeCashFlow.asCurrency)
+                    LabeledContent("Operativer Cashflow", value: operativeCashFlow.asCurrency)
                         .font(.headline)
                         .foregroundStyle(operativeCashFlow >= 0 ? Theme.statusGood : Theme.statusCritical)
-                    let cashFlow = property.freeCashFlow(forYear: selectedTaxYear)
-                    LabeledContent("Freier Cashflow \(String(selectedTaxYear))", value: cashFlow.asCurrency)
-                        .foregroundStyle(cashFlow >= 0 ? Theme.statusGood : Theme.statusCritical)
+
                     if let landlord = landlords.first, let cashFlowAfterTax = freeCashFlowAfterTax(forYear: selectedTaxYear) {
-                        let taxBurden = max(0, property.estimatedTaxableResult(forYear: selectedTaxYear)) * landlord.marginalTaxRatePercent / 100
-                        LabeledContent("Geschätzte Steuerlast \(String(selectedTaxYear))", value: taxBurden.asCurrency)
-                            .foregroundStyle(Theme.statusWarning)
                         VStack(alignment: .leading, spacing: 2) {
-                            LabeledContent("Cashflow nach Steuer \(String(selectedTaxYear))", value: cashFlowAfterTax.asCurrency)
+                            LabeledContent("Freier Cashflow", value: cashFlowAfterTax.asCurrency)
                                 .font(.headline)
                                 .foregroundStyle(cashFlowAfterTax >= 0 ? Theme.statusGood : Theme.statusCritical)
                             if let previousCashFlowAfterTax = freeCashFlowAfterTax(forYear: selectedTaxYear - 1) {
                                 yearOverYearCaption(current: cashFlowAfterTax, previous: previousCashFlowAfterTax)
                             }
                         }
+                        let taxBurden = max(0, property.estimatedTaxableResult(forYear: selectedTaxYear)) * landlord.marginalTaxRatePercent / 100
+                        LabeledContent("davon geschätzte Steuerlast", value: taxBurden.asCurrency)
+                            .font(.caption)
+                            .foregroundStyle(Theme.statusWarning)
+                    } else {
+                        let cashFlow = property.freeCashFlow(forYear: selectedTaxYear)
+                        LabeledContent("Freier Cashflow (vor Steuer)", value: cashFlow.asCurrency)
+                            .font(.headline)
+                            .foregroundStyle(cashFlow >= 0 ? Theme.statusGood : Theme.statusCritical)
+                        Text("Vermieterprofil mit Grenzsteuersatz hinterlegen, um den Cashflow nach Steuer zu sehen.")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                     }
+
                     let monthlyCashFlow = property.freeCashFlow(forMonth: .now)
                     LabeledContent("Freier Cashflow \(Date.now.asMonthYear)", value: monthlyCashFlow.asCurrency)
+                        .font(.caption)
                         .foregroundStyle(monthlyCashFlow >= 0 ? Theme.statusGood : Theme.statusCritical)
                 } footer: {
-                    Text("Operativer Cashflow: Kaltmiete abzüglich Barausgaben, aller Betriebskosten (umlagefähig + nicht umlagefähig) und Annuität. Freier Cashflow: wie operativ, aber ohne Abzug der umlagefähigen Betriebskosten (geht davon aus, dass sich Vorauszahlung und umlagefähige Kosten etwa ausgleichen). AfA ist nicht cash-wirksam und daher nicht enthalten. Steuerlast grob geschätzt aus dem Grenzsteuersatz im Vermieterprofil.")
+                    Text("Operativer Cashflow: Kaltmiete abzüglich Barausgaben, aller Betriebskosten (umlagefähig + nicht umlagefähig) und Annuität. Freier Cashflow: wie operativ, aber ohne Abzug der umlagefähigen Betriebskosten (geht davon aus, dass sich Vorauszahlung und umlagefähige Kosten etwa ausgleichen) – bereits abzüglich der geschätzten Steuerlast, sofern ein Vermieterprofil mit Grenzsteuersatz hinterlegt ist. AfA ist nicht cash-wirksam und daher nicht enthalten.")
                 }
             }
         else {
