@@ -45,6 +45,7 @@ struct TravelExpenseListView: View {
                 }
             }
         }
+        .themedScrollBackground()
         .navigationTitle("Fahrtkosten")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

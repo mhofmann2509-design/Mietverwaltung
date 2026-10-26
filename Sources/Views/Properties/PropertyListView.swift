@@ -105,6 +105,7 @@ struct PropertyListView: View {
             }
             .onDelete(perform: deleteProperties)
         }
+        .themedScrollBackground()
         .navigationTitle("Immobilien")
         .searchable(text: $searchText, prompt: "Immobilien durchsuchen")
         // Zentral in ContentView deklariert, siehe dortiger Kommentar.

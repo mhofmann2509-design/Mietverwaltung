@@ -50,6 +50,7 @@ struct ThresholdCaseDetailView: View {
                 }
             }
         }
+        .themedScrollBackground()
         .navigationTitle("15-%-Grenze")
         .onAppear {
             thresholdCase.ensureAssessments(context: context)

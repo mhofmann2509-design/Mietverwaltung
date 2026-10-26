@@ -74,6 +74,7 @@ struct TenantDetailView: View {
                 }
             }
         }
+        .themedScrollBackground()
         .navigationTitle(tenant.fullName)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

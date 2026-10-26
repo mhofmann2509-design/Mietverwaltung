@@ -74,6 +74,7 @@ struct WirtschaftsplanDetailView: View {
                 }
             }
         }
+        .themedScrollBackground()
         .navigationTitle("Wirtschaftsplan \(String(plan.year))")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

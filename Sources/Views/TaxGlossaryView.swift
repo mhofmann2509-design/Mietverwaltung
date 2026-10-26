@@ -131,6 +131,7 @@ struct TaxGlossaryView: View {
                 }
             }
         }
+        .themedScrollBackground()
         .navigationTitle("Steuerbegriffe")
     }
 }

@@ -48,6 +48,7 @@ struct TaxModuleView: View {
             }
             .padding()
         }
+        .background(Theme.pageBackground)
         .navigationTitle("Steuern")
     }
 

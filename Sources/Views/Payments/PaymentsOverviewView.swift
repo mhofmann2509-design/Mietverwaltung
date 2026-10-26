@@ -174,6 +174,7 @@ struct PaymentsOverviewView: View {
                 }
             }
         }
+        .themedScrollBackground()
         .navigationTitle(fixedYear.map { "Zahlungen \(String($0))" } ?? "Zahlungen")
         .toolbar {
             if fixedYear == nil {

@@ -108,6 +108,7 @@ struct PropertyDetailView: View {
             case .betriebskosten: betriebskostenTabSections
             }
         }
+        .themedScrollBackground()
         .navigationTitle(property.name.isEmpty ? "Immobilie" : property.name)
         // Unit/UtilityStatement: zentral in ContentView deklariert, siehe dortiger Kommentar.
         .toolbar {

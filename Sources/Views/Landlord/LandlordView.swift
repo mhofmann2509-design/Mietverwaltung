@@ -75,6 +75,7 @@ struct LandlordView: View {
                 )
             }
         }
+        .themedScrollBackground()
         .navigationTitle("Vermieter")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

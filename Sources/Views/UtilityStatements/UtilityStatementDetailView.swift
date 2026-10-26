@@ -478,6 +478,7 @@ struct UtilityStatementDetailView: View {
                 }
             }
         }
+        .themedScrollBackground()
         .navigationTitle("Nebenkosten \(String(statement.year))")
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

@@ -306,6 +306,7 @@ struct UtilityStatementListView: View {
                 }
             }
         }
+        .themedScrollBackground()
         .navigationTitle("Nebenkostenabrechnung")
         .searchable(text: $searchText, prompt: "Objekt oder Jahr suchen")
         // UtilityStatement: zentral in ContentView deklariert, siehe dortiger Kommentar.

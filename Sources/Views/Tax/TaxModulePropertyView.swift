@@ -84,6 +84,7 @@ struct TaxModulePropertyView: View {
             }
             .padding()
         }
+        .background(Theme.pageBackground)
         .navigationTitle(property.name.isEmpty ? property.address : property.name)
         .onAppear {
             TaxChecklistSeeder.ensureSeeded(for: property, taxYear: selectedYear, context: context)

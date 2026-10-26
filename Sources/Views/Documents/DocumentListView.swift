@@ -132,6 +132,7 @@ struct DocumentListView: View {
                 }
             }
         }
+        .themedScrollBackground()
         .navigationTitle(navigationTitleText)
         .searchable(text: $searchText, prompt: "Dokumente durchsuchen")
         .toolbar {

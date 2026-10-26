@@ -117,6 +117,7 @@ struct UnitDetailView: View {
                 }
             }
         }
+        .themedScrollBackground()
         .navigationTitle(unit.name.isEmpty ? "Einheit" : unit.name)
         .toolbar {
             ToolbarItem(placement: .primaryAction) {

@@ -48,6 +48,7 @@ struct TenantListView: View {
             }
             .onDelete(perform: deleteTenants)
         }
+        .themedScrollBackground()
         .navigationTitle("Mieter")
         .searchable(text: $searchText, prompt: "Mieter durchsuchen")
         .navigationDestination(for: Tenant.self) { tenant in

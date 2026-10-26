@@ -54,6 +54,7 @@ struct RemainingUsefulLifeAppraisalListView: View {
                 Text("Vereinfachtes Modell nach Anlage 2 ImmoWertV, ersetzt kein Gutachten eines öffentlich bestellten Sachverständigen.")
             }
         }
+        .themedScrollBackground()
         .navigationTitle("Restnutzungsdauergutachten")
         .sheet(isPresented: $showingAddSheet) {
             RemainingUsefulLifeAppraisalEditView(property: property, appraisal: nil)

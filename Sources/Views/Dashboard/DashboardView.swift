@@ -329,6 +329,7 @@ struct DashboardView: View {
             }
             .padding()
         }
+        .background(Theme.pageBackground)
         .navigationTitle("Übersicht")
         // Property/Unit: zentral in ContentView deklariert (siehe dortiger Kommentar) – hier
         // nicht erneut, sonst ignoriert SwiftUI eine der beiden Deklarationen stillschweigend.

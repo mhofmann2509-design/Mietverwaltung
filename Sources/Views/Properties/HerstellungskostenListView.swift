@@ -182,6 +182,7 @@ struct HerstellungskostenListView: View {
                 }
             }
         }
+        .themedScrollBackground()
         .navigationTitle(fixedYear.map { "Herstellungskosten \(String($0))" } ?? "Herstellungskosten")
         .searchable(text: $searchText, prompt: "Herstellungskosten durchsuchen")
         .toolbar {

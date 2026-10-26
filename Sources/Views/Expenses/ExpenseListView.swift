@@ -252,6 +252,7 @@ struct ExpenseListView: View {
                 }
             }
         }
+        .themedScrollBackground()
         .navigationTitle(fixedYear.map { "Ausgaben \(String($0))" } ?? "Ausgaben")
         .searchable(text: $searchText, prompt: "Ausgaben durchsuchen")
         .toolbar {

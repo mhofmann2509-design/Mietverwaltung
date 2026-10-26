@@ -249,6 +249,7 @@ struct MoeblierungListView: View {
                 }
             }
         }
+        .themedScrollBackground()
         .navigationTitle(property?.name ?? (onlyCoRented ? "Mitvermietet" : "Möblierung"))
         .searchable(text: $searchText, prompt: "Möblierung durchsuchen")
         .toolbar {
