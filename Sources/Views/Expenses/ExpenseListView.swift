@@ -188,13 +188,16 @@ struct ExpenseListView: View {
             }
 
             Section {
-                LabeledContent("Erhaltungsaufwendungen", value: maintenanceTotal.asCurrency)
-                LabeledContent("Sonstige Werbungskosten", value: otherDeductibleTotal.asCurrency)
-                if capitalizedTotal > 0 {
-                    LabeledContent("Herstellungskosten (AfA)", value: capitalizedTotal.asCurrency)
+                LazyVGrid(columns: [GridItem(.adaptive(minimum: 150), spacing: Theme.rowSpacing)], spacing: Theme.rowSpacing) {
+                    KPITile(title: "Erhaltungsaufwendungen", value: maintenanceTotal.asCurrency, systemImage: "wrench.and.screwdriver")
+                    KPITile(title: "Sonstige Werbungskosten", value: otherDeductibleTotal.asCurrency, systemImage: "minus.circle")
+                    if capitalizedTotal > 0 {
+                        KPITile(title: "Herstellungskosten (AfA)", value: capitalizedTotal.asCurrency, systemImage: "chart.line.downtrend.xyaxis", valueColor: Theme.statusWarning)
+                    }
+                    KPITile(title: "Gesamtausgaben", value: totalAmount.asCurrency, systemImage: "eurosign.circle")
                 }
-                LabeledContent("Gesamtausgaben", value: totalAmount.asCurrency)
-                    .font(.headline)
+                .listRowInsets(EdgeInsets())
+                .padding(.vertical, Theme.spacingS)
             } header: {
                 Text("Ausgaben nach Art")
             }
