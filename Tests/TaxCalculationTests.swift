@@ -378,6 +378,59 @@ final class TaxCalculationTests: XCTestCase {
         XCTAssertEqual(property.werbungskosten(forYear: 2023), 6_000, accuracy: 0.01)
     }
 
+    /// Prüft die jahresweise Simulation über mehr als ein Jahr hinweg: bei einem Annuitätendarlehen
+    /// sinkt der Zinsanteil und steigt der Tilgungsanteil von Jahr zu Jahr, weil sich beide auf die
+    /// jeweils aktuelle (fallende) Restschuld beziehen – ein reiner Eins-Jahr-Test könnte eine
+    /// falsche, nicht kumulierende Implementierung nicht von der korrekten unterscheiden.
+    func testLoanBreakdownCompoundsDecliningBalanceAcrossYears() {
+        let property = Property(purchasePrice: 300_000, purchaseDate: calendarDate(2024, 1, 1), landValue: 60_000)
+        property.loanAmount = 100_000
+        property.interestRatePercent = 5.0
+        property.initialRepaymentRatePercent = 2.0
+        property.loanStartDate = calendarDate(2024, 1, 1)
+        XCTAssertEqual(property.annualAnnuity, 7_000, accuracy: 0.01)
+
+        guard let year1 = property.loanBreakdown(forYear: 2024) else {
+            return XCTFail("Finanzierung sollte für 2024 einen Zins-/Tilgungssplit liefern.")
+        }
+        XCTAssertEqual(year1.interest, 5_000, accuracy: 0.01)
+        XCTAssertEqual(year1.principal, 2_000, accuracy: 0.01)
+        XCTAssertEqual(year1.remainingBalance, 98_000, accuracy: 0.01)
+
+        // Jahr 2: Zins auf die gesunkene Restschuld (98.000 statt 100.000) → weniger Zins, mehr Tilgung.
+        guard let year2 = property.loanBreakdown(forYear: 2025) else {
+            return XCTFail("Finanzierung sollte für 2025 einen Zins-/Tilgungssplit liefern.")
+        }
+        XCTAssertEqual(year2.interest, 4_900, accuracy: 0.01)
+        XCTAssertEqual(year2.principal, 2_100, accuracy: 0.01)
+        XCTAssertEqual(year2.remainingBalance, 95_900, accuracy: 0.01)
+    }
+
+    // MARK: - Mietrückstände
+
+    /// `Tenancy.arrearsBalance` ist die Grundlage der Mietrückstands-Anzeige in Zahlungen/Dashboard
+    /// (durchgängig mit echten Zahlen im Simulator gezeigt), hatte bisher aber keinen eigenen Test:
+    /// ein Monat ohne erfasste Zahlung muss voll als offen zählen, eine Teilzahlung nur anteilig.
+    func testArrearsBalanceAccumulatesUnpaidAndPartialMonths() {
+        let tenancy = Tenancy(startDate: calendarDate(2026, 1, 1), coldRent: 800, utilityAdvance: 200)
+        context.insert(tenancy)
+
+        let january = RentPayment(dueDate: calendarDate(2026, 1, 1), coldRentDue: 800, utilityAdvanceDue: 200)
+        january.tenancy = tenancy
+        january.markPaid(date: calendarDate(2026, 1, 5)) // volle Zahlung (amount = totalDue)
+        context.insert(january)
+
+        // Februar: bewusst keine Zahlung erfasst -> muss voll als Rückstand zählen.
+
+        let march = RentPayment(dueDate: calendarDate(2026, 3, 1), coldRentDue: 800, utilityAdvanceDue: 200)
+        march.tenancy = tenancy
+        march.markPaid(amount: 400, date: calendarDate(2026, 3, 10)) // Teilzahlung
+        context.insert(march)
+
+        // Januar 0 € offen, Februar 1.000 € offen, März 1.000 − 400 = 600 € offen.
+        XCTAssertEqual(tenancy.arrearsBalance(upTo: calendarDate(2026, 3, 31)), 1_600, accuracy: 0.01)
+    }
+
     // MARK: - Fahrtkosten
 
     func testTravelExpenseAmountUsesActualRoundTripKilometers() {
