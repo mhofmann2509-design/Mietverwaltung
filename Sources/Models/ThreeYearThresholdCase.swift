@@ -77,9 +77,12 @@ final class ThreeYearThresholdCase {
         self.createdAt = .now
     }
 
-    /// Alle Erhaltungsaufwand-Positionen der Immobilie, deren Datum in den Dreijahreszeitraum
-    /// fällt – die Kandidatenliste für die 15-%-Prüfung. Sonstige Werbungskosten, GWG und bereits
-    /// als Herstellungskosten erfasste Positionen sind bewusst ausgeschlossen (siehe Auftrag).
+    /// Alle Erhaltungsaufwand-Positionen der Immobilie, deren maßgebliches Datum in den
+    /// Dreijahreszeitraum fällt – die Kandidatenliste für die 15-%-Prüfung. Sonstige
+    /// Werbungskosten, GWG und bereits als Herstellungskosten erfasste Positionen sind bewusst
+    /// ausgeschlossen (siehe Auftrag). Maßgeblich ist `completionDate` (Fertigstellung/
+    /// Leistungszeitraum), falls erfasst, sonst `date` (Rechnungsdatum) als Fallback – weder
+    /// Rechnungs- noch Zahlungsdatum gelten ungeprüft als alleinige Grundlage.
     var candidateExpenses: [Expense] {
         guard let property else { return [] }
         let own = property.expenses ?? []
@@ -88,8 +91,8 @@ final class ThreeYearThresholdCase {
         return (own + unitOnes)
             .filter { seen.insert($0.persistentModelID).inserted }
             .filter { $0.taxTreatment == .maintenanceExpense }
-            .filter { $0.date >= periodStart && $0.date <= periodEnd }
-            .sorted { $0.date < $1.date }
+            .filter { let d = $0.completionDate ?? $0.date; return d >= periodStart && d <= periodEnd }
+            .sorted { ($0.completionDate ?? $0.date) < ($1.completionDate ?? $1.date) }
     }
 
     /// Stellt sicher, dass für jede Kandidaten-Position eine Einordnung existiert (Standard:
@@ -166,6 +169,24 @@ final class ThreeYearThresholdCase {
     /// Ob der Dreijahreszeitraum bereits abgelaufen ist (heutiges Datum nach `periodEnd`).
     var isPeriodOver: Bool {
         Date.now > periodEnd
+    }
+
+    /// Summe der Netto-Beträge noch ungeklärter Positionen (weder einbezogen noch ausgeschlossen) –
+    /// der mögliche zusätzliche Betrag, falls diese Positionen später als einzubeziehen eingestuft
+    /// werden. Getrennt von `includedNetTotal` ausgewiesen, damit die Darstellung nicht fälschlich
+    /// Sicherheit über ein Ergebnis vermittelt, das noch von offenen Positionen abhängt.
+    var possibleAdditionalAmount: Double {
+        candidateExpenses
+            .filter { (assessment(for: $0)?.status ?? .unclassified) == .unclassified }
+            .reduce(0) { $0 + ($1.netAmount ?? 0) }
+    }
+
+    /// Alle Aktivierungs-Entscheidungen (siehe `CapitalizationDecision`), die aus dieser Prüfung
+    /// hervorgegangen sind, chronologisch – Grundlage für die „Überleitung zur AfA" im Report.
+    var capitalizationDecisions: [CapitalizationDecision] {
+        (property?.capitalizationDecisions ?? [])
+            .filter { $0.thresholdCase?.persistentModelID == persistentModelID }
+            .sorted { $0.decidedAt < $1.decidedAt }
     }
 }
 

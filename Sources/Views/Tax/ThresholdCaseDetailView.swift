@@ -8,6 +8,19 @@ import SwiftData
 struct ThresholdCaseDetailView: View {
     @Bindable var thresholdCase: ThreeYearThresholdCase
     @Environment(\.modelContext) private var context
+    @State private var capitalizationReason = ""
+
+    /// Positionen, die bereits als „einzubeziehen" eingestuft, aber noch nicht als
+    /// Herstellungskosten aktiviert wurden – Kandidaten für die Aktivierungsaktion.
+    private var activatableExpenses: [Expense] {
+        thresholdCase.candidateExpenses.filter {
+            $0.capitalizationDecision == nil && (thresholdCase.assessment(for: $0)?.status.countsTowardThreshold ?? false)
+        }
+    }
+
+    private var activatableTotal: Double {
+        activatableExpenses.reduce(0) { $0 + $1.amount }
+    }
 
     var body: some View {
         List {
@@ -46,6 +59,45 @@ struct ThresholdCaseDetailView: View {
                         if let assessment = thresholdCase.assessment(for: expense) {
                             ThresholdExpenseRow(expense: expense, assessment: assessment)
                         }
+                    }
+                }
+            }
+
+            if !activatableExpenses.isEmpty, let property = thresholdCase.property {
+                Section {
+                    Text("\(activatableExpenses.count) einbezogene Position(en), insgesamt \(activatableTotal.asCurrency), noch nicht als Herstellungskosten aktiviert.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    TextField("Begründung (optional)", text: $capitalizationReason, axis: .vertical)
+                        .textFieldStyle(.roundedBorder)
+                    Button("Als Herstellungskosten aktivieren") {
+                        CapitalizationDecision.create(
+                            from: activatableExpenses,
+                            property: property,
+                            thresholdCase: thresholdCase,
+                            reason: capitalizationReason,
+                            context: context
+                        )
+                        capitalizationReason = ""
+                    }
+                } header: {
+                    Text("Aktivierung als Herstellungskosten")
+                } footer: {
+                    Text("Überträgt die ausgewählten Positionen bewusst und nachvollziehbar in die AfA-Bemessungsgrundlage (neues Wirtschaftsgut, Gebäude-AfA-Satz) – keine automatische Entscheidung. Die Ausgaben scheiden danach aus künftigen 15-%-Prüfungen aus.")
+                }
+            }
+
+            if !thresholdCase.capitalizationDecisions.isEmpty {
+                Section("Bereits aktivierte Maßnahmen") {
+                    ForEach(thresholdCase.capitalizationDecisions) { decision in
+                        VStack(alignment: .leading, spacing: 3) {
+                            Text(decision.resultingAsset?.name ?? "Aktivierte Herstellungskosten")
+                                .font(.subheadline)
+                            Text("\(decision.decidedAt.asShortDate) · wirksam ab \(String(decision.effectiveYear)) · \(decision.totalAmount.asCurrency)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 2)
                     }
                 }
             }
@@ -88,21 +140,27 @@ private struct ThresholdExpenseRow: View {
                     }
                 }
             }
-            Picker("Einordnung", selection: Binding(
-                get: { assessment.status },
-                set: { assessment.status = $0 }
-            )) {
-                ForEach(ThresholdExpenseStatus.allCases) { status in
-                    Text(status.label).tag(status)
-                }
-            }
-            .pickerStyle(.menu)
-            .labelsHidden()
-
-            if assessment.status == .excluded {
-                TextField("Begründung (Rechtsgrundlage)", text: $assessment.reason, axis: .vertical)
+            if expense.capitalizationDecision != nil {
+                Label("Bereits als Herstellungskosten aktiviert", systemImage: "checkmark.seal")
                     .font(.caption)
-                    .textFieldStyle(.roundedBorder)
+                    .foregroundStyle(Theme.statusGood)
+            } else {
+                Picker("Einordnung", selection: Binding(
+                    get: { assessment.status },
+                    set: { assessment.status = $0 }
+                )) {
+                    ForEach(ThresholdExpenseStatus.allCases) { status in
+                        Text(status.label).tag(status)
+                    }
+                }
+                .pickerStyle(.menu)
+                .labelsHidden()
+
+                if assessment.status == .excluded {
+                    TextField("Begründung (Rechtsgrundlage)", text: $assessment.reason, axis: .vertical)
+                        .font(.caption)
+                        .textFieldStyle(.roundedBorder)
+                }
             }
         }
         .padding(.vertical, 2)

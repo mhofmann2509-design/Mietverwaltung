@@ -17,7 +17,7 @@ final class TaxCalculationTests: XCTestCase {
             DepreciableAsset.self, UtilityStatement.self, UtilityCostLineItem.self, Landlord.self,
             RemainingUsefulLifeAppraisal.self, WirtschaftsplanStatement.self, WirtschaftsplanLineItem.self,
             TrackedYear.self, TaxChecklistItem.self, ThreeYearThresholdCase.self, ThresholdExpenseAssessment.self,
-            TravelExpense.self, HomeOfficeEntry.self
+            CapitalizationDecision.self, TravelExpense.self, HomeOfficeEntry.self
         ])
         container = try ModelContainer(for: schema, configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)])
         context = container.mainContext
@@ -587,5 +587,171 @@ final class TaxCalculationTests: XCTestCase {
         TaxChecklistSeeder.ensureSeeded(for: property, taxYear: 2024, context: context)
 
         XCTAssertTrue((property.taxChecklistItems ?? []).allSatisfy { $0.status == .open }, "Neu angelegte Checklisten-Einträge müssen immer offen starten.")
+    }
+
+    // MARK: - 15-%-Grenze: Zeitraum-Zuordnung, Grenzfall, ungeklärte Positionen
+
+    func testCandidateExpensesPrefersCompletionDateOverInvoiceDate() {
+        let property = Property(purchasePrice: 300_000, purchaseDate: calendarDate(2023, 1, 1), landValue: 60_000)
+        context.insert(property)
+        let thresholdCase = ThreeYearThresholdCase(periodStart: calendarDate(2023, 1, 1), periodEnd: calendarDate(2025, 12, 31))
+        thresholdCase.property = property
+        context.insert(thresholdCase)
+
+        // Rechnungsdatum außerhalb des Zeitraums, aber Fertigstellung innerhalb → wird einbezogen.
+        let finishedInPeriod = Expense(date: calendarDate(2022, 11, 1), amount: 1_190, title: "Dachsanierung", taxTreatment: .maintenanceExpense)
+        finishedInPeriod.completionDate = calendarDate(2023, 2, 1)
+        finishedInPeriod.property = property
+        context.insert(finishedInPeriod)
+
+        // Rechnungsdatum innerhalb, aber Fertigstellung außerhalb → wird ausgeschlossen.
+        let finishedBeforePeriod = Expense(date: calendarDate(2023, 3, 1), amount: 1_190, title: "Vorarbeiten", taxTreatment: .maintenanceExpense)
+        finishedBeforePeriod.completionDate = calendarDate(2022, 10, 1)
+        finishedBeforePeriod.property = property
+        context.insert(finishedBeforePeriod)
+
+        let candidateIDs = Set(thresholdCase.candidateExpenses.map(\.persistentModelID))
+        XCTAssertTrue(candidateIDs.contains(finishedInPeriod.persistentModelID))
+        XCTAssertFalse(candidateIDs.contains(finishedBeforePeriod.persistentModelID))
+    }
+
+    func testThresholdCaseExactlyAtThresholdCountsAsExceeded() {
+        let property = Property(purchasePrice: 300_000, purchaseDate: calendarDate(2023, 1, 1), landValue: 60_000)
+        context.insert(property)
+        let thresholdCase = ThreeYearThresholdCase(periodStart: calendarDate(2023, 1, 1), periodEnd: calendarDate(2025, 12, 31))
+        thresholdCase.property = property
+        context.insert(thresholdCase)
+
+        // Bemessungsgrundlage 240.000 € → Schwelle exakt 36.000 € netto.
+        let expense = Expense(date: calendarDate(2023, 6, 1), amount: 42_840, title: "Sanierung", taxTreatment: .maintenanceExpense)
+        expense.vatRatePercent = 19 // netto exakt 36.000 €
+        expense.property = property
+        context.insert(expense)
+
+        thresholdCase.ensureAssessments(context: context)
+        thresholdCase.assessment(for: expense)?.status = .certain
+
+        XCTAssertEqual(thresholdCase.includedNetTotal, 36_000, accuracy: 0.01)
+        XCTAssertEqual(thresholdCase.status, .exceeded, "Der Grenzfall genau an der 15-%-Schwelle gilt bereits als überschritten, nicht als nur erreicht.")
+    }
+
+    func testPossibleAdditionalAmountOnlySumsUnclassifiedPositions() {
+        let property = Property(purchasePrice: 300_000, purchaseDate: calendarDate(2023, 1, 1), landValue: 60_000)
+        context.insert(property)
+        let thresholdCase = ThreeYearThresholdCase(periodStart: calendarDate(2023, 1, 1), periodEnd: calendarDate(2025, 12, 31))
+        thresholdCase.property = property
+        context.insert(thresholdCase)
+
+        let certain = Expense(date: calendarDate(2023, 4, 1), amount: 1_190, title: "Sicher", taxTreatment: .maintenanceExpense)
+        certain.vatRatePercent = 19
+        certain.property = property
+        context.insert(certain)
+
+        let open = Expense(date: calendarDate(2023, 5, 1), amount: 2_380, title: "Offen", taxTreatment: .maintenanceExpense)
+        open.vatRatePercent = 19
+        open.property = property
+        context.insert(open)
+
+        let excluded = Expense(date: calendarDate(2023, 6, 1), amount: 595, title: "Ausgeschlossen", taxTreatment: .maintenanceExpense)
+        excluded.vatRatePercent = 19
+        excluded.property = property
+        context.insert(excluded)
+
+        thresholdCase.ensureAssessments(context: context)
+        thresholdCase.assessment(for: certain)?.status = .certain
+        thresholdCase.assessment(for: excluded)?.status = .excluded
+        // `open` bleibt unclassified.
+
+        XCTAssertEqual(thresholdCase.possibleAdditionalAmount, open.netAmount ?? -1, accuracy: 0.01, "Nur ungeklärte Positionen zählen zum möglichen Zusatzbetrag, weder einbezogene noch ausgeschlossene.")
+    }
+
+    // MARK: - CapitalizationDecision: Brücke zwischen 15-%-Grenze und AfA
+
+    func testCapitalizationDecisionCreatesImprovementAssetAndMarksExpensesCapitalized() {
+        let property = Property(purchasePrice: 300_000, purchaseDate: calendarDate(2023, 1, 1), landValue: 60_000)
+        context.insert(property)
+
+        let expense = Expense(date: calendarDate(2023, 6, 1), amount: 20_000, title: "Badsanierung", taxTreatment: .maintenanceExpense)
+        expense.property = property
+        context.insert(expense)
+
+        let decision = CapitalizationDecision.create(from: [expense], property: property, thresholdCase: nil, reason: "Anschaffungsnahe Herstellungskosten", context: context)
+
+        XCTAssertNotNil(decision)
+        XCTAssertEqual(decision?.totalAmount, 20_000)
+        XCTAssertEqual(decision?.effectiveYear, 2023)
+        XCTAssertEqual(decision?.resultingAsset?.category, .improvement)
+        XCTAssertEqual(decision?.resultingAsset?.cost, 20_000)
+        XCTAssertEqual(decision?.resultingAsset?.property, property)
+        XCTAssertEqual(expense.taxTreatment, .capitalized, "Die Quell-Ausgabe muss nach der Aktivierung als Herstellungskosten geführt werden, nicht mehr als Erhaltungsaufwand.")
+        XCTAssertEqual(expense.capitalizationDecision, decision)
+    }
+
+    func testCapitalizationDecisionExpenseIsExcludedFromFutureThresholdCandidates() {
+        let property = Property(purchasePrice: 300_000, purchaseDate: calendarDate(2023, 1, 1), landValue: 60_000)
+        context.insert(property)
+        let thresholdCase = ThreeYearThresholdCase(periodStart: calendarDate(2023, 1, 1), periodEnd: calendarDate(2025, 12, 31))
+        thresholdCase.property = property
+        context.insert(thresholdCase)
+
+        let expense = Expense(date: calendarDate(2023, 6, 1), amount: 20_000, title: "Badsanierung", taxTreatment: .maintenanceExpense)
+        expense.property = property
+        context.insert(expense)
+        thresholdCase.ensureAssessments(context: context)
+        thresholdCase.assessment(for: expense)?.status = .certain
+        XCTAssertEqual(thresholdCase.candidateExpenses.count, 1)
+
+        CapitalizationDecision.create(from: [expense], property: property, thresholdCase: thresholdCase, reason: "", context: context)
+
+        XCTAssertTrue(thresholdCase.candidateExpenses.isEmpty, "Eine aktivierte Ausgabe darf nicht erneut als 15-%-Kandidat auftauchen (kein Doppelansatz).")
+    }
+
+    func testCapitalizationDecisionDoesNotDoubleLinkAlreadyCapitalizedExpenses() {
+        let property = Property(purchasePrice: 300_000, purchaseDate: calendarDate(2023, 1, 1), landValue: 60_000)
+        context.insert(property)
+
+        let expenseA = Expense(date: calendarDate(2023, 6, 1), amount: 10_000, title: "Teil A", taxTreatment: .maintenanceExpense)
+        expenseA.property = property
+        context.insert(expenseA)
+        let expenseB = Expense(date: calendarDate(2023, 6, 15), amount: 5_000, title: "Teil B", taxTreatment: .maintenanceExpense)
+        expenseB.property = property
+        context.insert(expenseB)
+
+        let firstDecision = CapitalizationDecision.create(from: [expenseA], property: property, thresholdCase: nil, reason: "", context: context)
+        XCTAssertNotNil(firstDecision)
+
+        // Zweiter Aufruf mit A (bereits verknüpft) + B (neu): nur B darf berücksichtigt werden.
+        let secondDecision = CapitalizationDecision.create(from: [expenseA, expenseB], property: property, thresholdCase: nil, reason: "", context: context)
+        XCTAssertEqual(secondDecision?.sourceExpenses?.count, 1)
+        XCTAssertEqual(secondDecision?.totalAmount, 5_000)
+        XCTAssertEqual(expenseA.capitalizationDecision, firstDecision, "Eine bereits aktivierte Ausgabe darf durch einen weiteren Aufruf nicht umgehängt werden.")
+
+        // Dritter Aufruf nur mit der bereits verknüpften Ausgabe A: keine neue Entscheidung.
+        let thirdDecision = CapitalizationDecision.create(from: [expenseA], property: property, thresholdCase: nil, reason: "", context: context)
+        XCTAssertNil(thirdDecision)
+    }
+
+    func testCapitalizationDecisionIncreasesTotalAfaOnlyFromEffectiveYearOnward() {
+        let property = Property(purchasePrice: 300_000, purchaseDate: calendarDate(2020, 1, 1), landValue: 60_000, constructionYear: 1998)
+        context.insert(property)
+        // Gebäudewert 240.000 €, Satz 2 % → 4.800 €/Jahr Gebäude-AfA (siehe testBuildingAfaFullYear).
+        let afaBeforeDecision2022 = property.totalAfa(forYear: 2022)
+        XCTAssertEqual(afaBeforeDecision2022, 4_800, accuracy: 0.01)
+
+        let expense = Expense(date: calendarDate(2023, 6, 1), amount: 20_000, title: "Badsanierung", taxTreatment: .maintenanceExpense)
+        expense.property = property
+        context.insert(expense)
+        CapitalizationDecision.create(from: [expense], property: property, thresholdCase: nil, reason: "", context: context)
+
+        // Vor dem Wirksamkeitsjahr (2022 < 2023): unverändert, keine rückwirkende Änderung.
+        XCTAssertEqual(property.totalAfa(forYear: 2022), 4_800, accuracy: 0.01)
+
+        // Im Wirksamkeitsjahr selbst: Gebäude-AfA + monatsanteilige AfA auf das neue Wirtschaftsgut
+        // (20.000 € × 2 % × 7/12, da ab Juni/Monat 6 → 13-6=7 Monate).
+        let expectedAssetAfa2023 = 20_000 * 0.02 * 7.0 / 12.0
+        XCTAssertEqual(property.totalAfa(forYear: 2023), 4_800 + expectedAssetAfa2023, accuracy: 0.01)
+
+        // Folgejahr: volle Jahres-AfA auf das Wirtschaftsgut.
+        XCTAssertEqual(property.totalAfa(forYear: 2024), 4_800 + 20_000 * 0.02, accuracy: 0.01)
     }
 }

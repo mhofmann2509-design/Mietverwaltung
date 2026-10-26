@@ -10,7 +10,7 @@ enum PreviewData {
             DepreciableAsset.self, UtilityStatement.self, UtilityCostLineItem.self, Landlord.self,
             RemainingUsefulLifeAppraisal.self, WirtschaftsplanStatement.self, WirtschaftsplanLineItem.self,
             TrackedYear.self, TaxChecklistItem.self, ThreeYearThresholdCase.self, ThresholdExpenseAssessment.self,
-            TravelExpense.self, HomeOfficeEntry.self
+            CapitalizationDecision.self, TravelExpense.self, HomeOfficeEntry.self
         ])
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         let container = try! ModelContainer(for: schema, configurations: [configuration])

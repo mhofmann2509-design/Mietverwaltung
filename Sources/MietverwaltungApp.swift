@@ -23,6 +23,7 @@ struct MietverwaltungApp: App {
             TaxChecklistItem.self,
             ThreeYearThresholdCase.self,
             ThresholdExpenseAssessment.self,
+            CapitalizationDecision.self,
             TravelExpense.self,
             HomeOfficeEntry.self
         ])

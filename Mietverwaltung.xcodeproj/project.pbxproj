@@ -55,6 +55,7 @@
 		4190CD33ED4605027E1FBA14 /* TilgungsplanReportDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5210130F5057935FE97B8683 /* TilgungsplanReportDocument.swift */; };
 		42AEB887CC675AED3791D264 /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D585BAF64CAEA2275932E /* Formatters.swift */; };
 		42AF321F954E61A91BFD5877 /* TaxCalculationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E909935DAD808EDFFC0FF3B5 /* TaxCalculationTests.swift */; };
+		42CD801ADFECFBB415847FB0 /* CapitalizationDecision.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C3899F99749AD800F2D8BE2 /* CapitalizationDecision.swift */; };
 		436A12B95362A2F8D1A1357F /* LandlordEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8EF6EDB92DFA0BA0CF993E6 /* LandlordEditView.swift */; };
 		4917BB2C5AE76099D24716ED /* TenantListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CEB60823677D155487F8CBD /* TenantListView.swift */; };
 		4AB44A4221B62F34AF84C6C7 /* PropertyDocumentOCR.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69FB62FDADFA923F25EB2921 /* PropertyDocumentOCR.swift */; };
@@ -155,6 +156,7 @@
 		DA24D96C0B018ECFBB09B984 /* TaxChecklistItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = C091634DFD8D185EBD17AAFE /* TaxChecklistItem.swift */; };
 		DBA60317FBBF6A6F4BAD3AAC /* PropertyPurchaseContractScanReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8010C1261F6162646532221E /* PropertyPurchaseContractScanReviewView.swift */; };
 		DDEB092AC336BF7D43F52F61 /* AddDocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A072D6382844CB1C86A5EE87 /* AddDocumentView.swift */; };
+		DE39DE190B1198CBAA91C9B2 /* CapitalizationDecision.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C3899F99749AD800F2D8BE2 /* CapitalizationDecision.swift */; };
 		DF77592CDAFB6D8461C535FF /* DocumentListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95E4835CBDF4D7980F1E9EEA /* DocumentListView.swift */; };
 		DFB3934C46B4C2F9EF538ED5 /* ThresholdCaseDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CAFDFAC9A46249C39DAC21A /* ThresholdCaseDetailView.swift */; };
 		E04582BAD4E4D43BE6EAEC4B /* RemainingUsefulLifeAppraisalListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B90A8F41D8E7537662BDE11B /* RemainingUsefulLifeAppraisalListView.swift */; };
@@ -241,6 +243,7 @@
 		5845FDF7EBB418C15207892C /* Tenancy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tenancy.swift; sourceTree = "<group>"; };
 		5B12C5724FD446F6F412C964 /* PropertyListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PropertyListView.swift; sourceTree = "<group>"; };
 		5C3316E611F57E0281BAD5ED /* TaxReportLayoutStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxReportLayoutStyle.swift; sourceTree = "<group>"; };
+		5C3899F99749AD800F2D8BE2 /* CapitalizationDecision.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapitalizationDecision.swift; sourceTree = "<group>"; };
 		5CEB60823677D155487F8CBD /* TenantListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TenantListView.swift; sourceTree = "<group>"; };
 		61223BEB3DB609036DF3D621 /* AllocationMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AllocationMethod.swift; sourceTree = "<group>"; };
 		646A2B4C8E9ECA138C689449 /* UtilityStatement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtilityStatement.swift; sourceTree = "<group>"; };
@@ -478,6 +481,7 @@
 			isa = PBXGroup;
 			children = (
 				61223BEB3DB609036DF3D621 /* AllocationMethod.swift */,
+				5C3899F99749AD800F2D8BE2 /* CapitalizationDecision.swift */,
 				33A3D466B361996A66581AF7 /* DepreciableAsset.swift */,
 				9B0037A9A281C32343AE789F /* Document.swift */,
 				1A18CB032EF40EF18EEF55BC /* Expense.swift */,
@@ -677,6 +681,7 @@
 				A46561ED1BDCC84CA81A892F /* AllocationMethod.swift in Sources */,
 				2FF325C36B2822E53CF10E86 /* AppearanceSettingsView.swift in Sources */,
 				85537819AC9D8694A4FF6253 /* CSVImporter.swift in Sources */,
+				42CD801ADFECFBB415847FB0 /* CapitalizationDecision.swift in Sources */,
 				E3C970D785D1F3EF16357F27 /* Components.swift in Sources */,
 				AA36F70AA5E4EF5610D8579B /* ContentView.swift in Sources */,
 				D81999E6F34ACE3D64D16F62 /* DashboardView.swift in Sources */,
@@ -773,6 +778,7 @@
 				E2AAAD12883B3B9F3DEC6D7A /* AllocationMethod.swift in Sources */,
 				D261D44259E2E894A4F45370 /* AppearanceSettingsView.swift in Sources */,
 				BAA44ADD8583884025E2CDD2 /* CSVImporter.swift in Sources */,
+				DE39DE190B1198CBAA91C9B2 /* CapitalizationDecision.swift in Sources */,
 				E30C2C7D2532E08AEBADAA69 /* Components.swift in Sources */,
 				CB12A8CEE8B358E936E1717E /* ContentView.swift in Sources */,
 				9E80EB14813A70DC818B22F6 /* DashboardView.swift in Sources */,

@@ -92,6 +92,9 @@ final class Property {
     @Relationship(deleteRule: .cascade, inverse: \ThreeYearThresholdCase.property)
     var thresholdCases: [ThreeYearThresholdCase]? = []
 
+    @Relationship(deleteRule: .cascade, inverse: \CapitalizationDecision.property)
+    var capitalizationDecisions: [CapitalizationDecision]? = []
+
     @Relationship(deleteRule: .cascade, inverse: \TravelExpense.property)
     var travelExpenses: [TravelExpense]? = []
 

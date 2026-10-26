@@ -70,11 +70,35 @@ final class Expense {
     /// `amount` stillschweigend als Netto zu behandeln.
     var vatRatePercent: Double?
 
+    /// Datum der Fertigstellung/Leistungserbringung der Maßnahme, falls abweichend vom
+    /// Rechnungsdatum (`date`) erfasst – maßgeblich für die zeitliche Zuordnung zum
+    /// Dreijahreszeitraum der 15-%-Grenze (siehe `ThreeYearThresholdCase.candidateExpenses`),
+    /// da weder Rechnungs- noch Zahlungsdatum ungeprüft als alleinige Grundlage gelten sollen.
+    /// `nil`, solange nur das Rechnungsdatum bekannt ist – dann gilt `date` als Fallback.
+    var completionDate: Date?
+
+    /// Gewerk/Kostenart der Maßnahme (z.B. „Dach", „Elektrik", „Sanitär") als freier Text – rein
+    /// informativ für die Darstellung zusammengehöriger Maßnahmen über mehrere Rechnungen hinweg,
+    /// hat keinen Einfluss auf die 15-%-Berechnung selbst.
+    var trade: String?
+
+    /// Gemeinsame Kennung für Ausgaben, die zu ein- und derselben Baumaßnahme gehören, auch wenn
+    /// sie auf mehreren Rechnungen/Gewerken verteilt sind – rein für die Gruppierung in der
+    /// Darstellung, verändert die Berechnung nicht.
+    var measureGroupID: UUID?
+
     var property: Property?
     var unit: Unit?
 
     @Relationship(deleteRule: .cascade, inverse: \Document.expense)
     var documents: [Document]? = []
+
+    /// Gesetzt, sobald diese Ausgabe im Rahmen einer bewussten, manuellen Entscheidung als
+    /// Herstellungskosten aktiviert wurde (siehe `CapitalizationDecision`) – verhindert, dass
+    /// dieselbe Position doppelt als Werbungskosten und als AfA-Grundlage angesetzt wird: sobald
+    /// gesetzt, scheidet die Ausgabe automatisch aus `ThreeYearThresholdCase.candidateExpenses`
+    /// aus (da `taxTreatment` dabei auf `.capitalized` gesetzt wird).
+    var capitalizationDecision: CapitalizationDecision?
 
     /// `taxTreatment` nil lässt die steuerliche Behandlung anhand der Kategorie automatisch bestimmen
     /// (Instandhaltung → Erhaltungsaufwand, sonst → sonstige Werbungskosten).

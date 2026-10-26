@@ -54,6 +54,11 @@ enum TaxReportPDFBuilder {
         /// 15-%-Grenze) – derselbe `UtilizationBar`-Baustein wie im Steuer-Cockpit.
         var progressFraction: Double? = nil
         var progressTone: Theme.StatusTone = .neutral
+        /// Optionaler zweiter Balken direkt unter dem ersten – zeigt z.B. den Stand inklusive noch
+        /// ungeklärter Positionen, damit „bekannter" und „möglicher zusätzlicher" Betrag sichtbar
+        /// getrennt bleiben, statt eine Sicherheit vorzutäuschen, die von offenen Punkten abhängt.
+        var secondaryProgressFraction: Double? = nil
+        var secondaryProgressLabel: String? = nil
 
         var pageCount: Int { max(1, Int(ceil(Double(rows.count) / Double(maxRowsPerPage)))) }
 
@@ -185,6 +190,8 @@ enum TaxReportPDFBuilder {
                         summaryLines: pageIndex == 0 ? chapter.summaryLines : [],
                         progressFraction: pageIndex == 0 ? chapter.progressFraction : nil,
                         progressTone: chapter.progressTone,
+                        secondaryProgressFraction: pageIndex == 0 ? chapter.secondaryProgressFraction : nil,
+                        secondaryProgressLabel: chapter.secondaryProgressLabel,
                         columnHeaders: chapter.columnHeaders,
                         rows: rowsForPage,
                         startingRowNumber: chapter.startingRowNumber(forPage: pageIndex),
@@ -348,11 +355,19 @@ enum TaxReportPDFBuilder {
             let assetRows = assets.sorted { $0.placedInServiceDate < $1.placedInServiceDate }.map { asset -> [String] in
                 let cumulative = asset.cumulativeDepreciation(uptoYear: taxYear)
                 let remaining = asset.remainingDepreciationBookValue(afterYear: taxYear)
+                let method: String
+                if asset.isImmediatelyDeductible {
+                    method = "Sofortabzug (GWG)"
+                } else if asset.usesBuildingAfaRate {
+                    method = "wie Gebäude (\(property.afaRatePercent.asPercent))"
+                } else {
+                    method = "\(asset.usefulLifeYears) Jahre"
+                }
                 return [
                     asset.name,
                     asset.placedInServiceDate.asShortDate,
                     asset.depreciationBasis.asCurrency,
-                    asset.isImmediatelyDeductible ? "Sofortabzug (GWG)" : "\(asset.usefulLifeYears) Jahre",
+                    method,
                     asset.depreciation(forYear: taxYear).asCurrency,
                     cumulative.asCurrency,
                     remaining.asCurrency,
@@ -365,6 +380,31 @@ enum TaxReportPDFBuilder {
                 summaryLines: [],
                 columnHeaders: ["Bezeichnung", "Anschaffung", "AK/Zeitwert", "Methode", "AfA \(String(taxYear))", "Bisherige AfA", "Restwert", "Beleg"],
                 rows: assetRows
+            ))
+        }
+
+        // 5 · Maßnahmen und Änderungen – Überleitung der AfA-Bemessungsgrundlage für nachträglich
+        // als Herstellungskosten aktivierte Positionen (siehe `CapitalizationDecision`), mit Bezug
+        // zur ggf. zugrundeliegenden 15-%-Prüfung. Nur sichtbar, wenn mindestens eine Entscheidung
+        // vorliegt – verhindert leere, irreführende Kapitel.
+        let decisions = (property.capitalizationDecisions ?? []).sorted { $0.decidedAt < $1.decidedAt }
+        if !decisions.isEmpty {
+            let changeRows: [[String]] = decisions.map { decision in
+                [
+                    decision.decidedAt.asShortDate,
+                    decision.resultingAsset?.name ?? "Herstellungskosten",
+                    String(decision.effectiveYear),
+                    decision.totalAmount.asCurrency,
+                    decision.thresholdCase != nil ? "15-%-Grenze" : "manuell",
+                    decision.reason.isEmpty ? "–" : decision.reason
+                ]
+            }
+            chapters.append(Chapter(
+                title: "AfA-Herleitung – Maßnahmen und Änderungen",
+                introLines: ["Nachträglich als Herstellungskosten aktivierte Positionen werden als eigenes Wirtschaftsgut mit dem Gebäude-AfA-Satz abgeschrieben (siehe Tabelle „Bewegliche Wirtschaftsgüter“) und erhöhen die Bemessungsgrundlage erst ab dem genannten Wirksamkeitsjahr – frühere Jahre bleiben unverändert."],
+                summaryLines: [],
+                columnHeaders: ["Entschieden am", "Maßnahme", "Wirksam ab", "Betrag", "Anlass", "Begründung"],
+                rows: changeRows
             ))
         }
 
@@ -383,7 +423,10 @@ enum TaxReportPDFBuilder {
         resultLines.append("Bemessungsgrundlage (Gebäude-AK ohne Grund, siehe AfA-Herleitung): \(thresholdCase.basisAmount.asCurrency) · Schwelle (15 %): \(thresholdCase.thresholdAmount.asCurrency)")
         resultLines.append("")
         let percentText = thresholdCase.utilizationPercent.map { " (\($0.asPercent))" } ?? ""
-        resultLines.append("Rechnerisch: \(thresholdCase.includedNetTotal.asCurrency) von \(thresholdCase.thresholdAmount.asCurrency)\(percentText)")
+        resultLines.append("Rechnerisch (bekannt): \(thresholdCase.includedNetTotal.asCurrency) von \(thresholdCase.thresholdAmount.asCurrency)\(percentText)")
+        if thresholdCase.possibleAdditionalAmount > 0 {
+            resultLines.append("Zzgl. ungeklärter Positionen möglich: + \(thresholdCase.possibleAdditionalAmount.asCurrency)")
+        }
         let totalCandidates = thresholdCase.candidateExpenses.count
         let classified = totalCandidates - thresholdCase.unclassifiedCount
         var completeness = "\(classified) von \(totalCandidates) Position(en) klassifiziert"
@@ -393,6 +436,9 @@ enum TaxReportPDFBuilder {
         resultLines.append("Vollständigkeit: \(completeness)")
         resultLines.append("Beurteilung: \(thresholdCase.status.label) (Hinweis, keine abschließende steuerliche Würdigung)")
 
+        let secondaryFraction: Double? = thresholdCase.possibleAdditionalAmount > 0 && thresholdCase.thresholdAmount > 0
+            ? (thresholdCase.includedNetTotal + thresholdCase.possibleAdditionalAmount) / thresholdCase.thresholdAmount
+            : nil
         chapters.append(Chapter(
             title: "15-%-Grenze – Ergebnisübersicht",
             introLines: [],
@@ -400,7 +446,9 @@ enum TaxReportPDFBuilder {
             columnHeaders: [],
             rows: [],
             progressFraction: thresholdCase.utilizationPercent.map { $0 / 100 },
-            progressTone: toneForThresholdCaseStatus(thresholdCase.status)
+            progressTone: toneForThresholdCaseStatus(thresholdCase.status),
+            secondaryProgressFraction: secondaryFraction,
+            secondaryProgressLabel: secondaryFraction != nil ? "Inkl. ungeklärter Positionen (heller): bis zu \((thresholdCase.includedNetTotal + thresholdCase.possibleAdditionalAmount).asCurrency)" : nil
         ))
 
         // 2 · Kostenübersicht – mit Begründungsspalte und farblich codiertem Status.
@@ -458,6 +506,30 @@ enum TaxReportPDFBuilder {
                 summaryLines: [],
                 columnHeaders: ["Position", "Netto-Betrag", "Kumulierte Summe"],
                 rows: calcRows
+            ))
+        }
+
+        // 5 · Überleitung zur AfA – nur, wenn mindestens eine Aktivierungs-Entscheidung vorliegt
+        // (siehe `CapitalizationDecision`); dokumentiert bewusst gewordene Herstellungskosten mit
+        // Datum, Grund und Bezug zum entstandenen Wirtschaftsgut, statt die Verbindung zur AfA nur
+        // anzudeuten.
+        let decisions = thresholdCase.capitalizationDecisions
+        if !decisions.isEmpty {
+            let bridgeRows: [[String]] = decisions.map { decision in
+                [
+                    decision.decidedAt.asShortDate,
+                    decision.resultingAsset?.name ?? "Herstellungskosten",
+                    String(decision.effectiveYear),
+                    decision.totalAmount.asCurrency,
+                    decision.reason.isEmpty ? "–" : decision.reason
+                ]
+            }
+            chapters.append(Chapter(
+                title: "15-%-Grenze – Überleitung zur AfA",
+                introLines: ["Diese Positionen wurden bewusst als Herstellungskosten aktiviert und erhöhen seit dem genannten Steuerjahr die AfA-Bemessungsgrundlage als eigenes Wirtschaftsgut (siehe AfA-Herleitung, Abschnitt „Maßnahmen und Änderungen“)."],
+                summaryLines: [],
+                columnHeaders: ["Entschieden am", "Maßnahme", "Wirksam ab", "Betrag", "Begründung"],
+                rows: bridgeRows
             ))
         }
 
@@ -794,6 +866,8 @@ private struct TaxPDFChapterPage: View {
     let summaryLines: [String]
     var progressFraction: Double? = nil
     var progressTone: Theme.StatusTone = .neutral
+    var secondaryProgressFraction: Double? = nil
+    var secondaryProgressLabel: String? = nil
     let columnHeaders: [String]
     let rows: [[String]]
     var startingRowNumber: Int = 1
@@ -918,6 +992,16 @@ private struct TaxPDFChapterPage: View {
         if let progressFraction {
             UtilizationBar(fraction: progressFraction, tone: progressTone, height: 10)
                 .padding(.top, 10)
+        }
+        if let secondaryProgressFraction {
+            UtilizationBar(fraction: secondaryProgressFraction, tone: .neutral, height: 6)
+                .padding(.top, 5)
+            if let secondaryProgressLabel {
+                Text(secondaryProgressLabel)
+                    .font(.system(size: 8.5))
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 2)
+            }
         }
 
         if !columnHeaders.isEmpty {
@@ -1114,6 +1198,16 @@ private struct TaxPDFChapterPage: View {
         if let progressFraction {
             UtilizationBar(fraction: progressFraction, tone: progressTone, height: 10)
                 .padding(.top, 10)
+        }
+        if let secondaryProgressFraction {
+            UtilizationBar(fraction: secondaryProgressFraction, tone: .neutral, height: 6)
+                .padding(.top, 5)
+            if let secondaryProgressLabel {
+                Text(secondaryProgressLabel)
+                    .font(.system(size: 8))
+                    .foregroundStyle(.secondary)
+                    .padding(.top, 2)
+            }
         }
 
         if !columnHeaders.isEmpty {
