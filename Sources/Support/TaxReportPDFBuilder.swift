@@ -565,10 +565,18 @@ enum TaxReportPDFBuilder {
     // MARK: - Kapitel: Belegverzeichnis
 
     private static func buildDocumentsChapter(property: Property, taxYear: Int) -> Chapter? {
-        let allDocuments = (try? property.modelContext?.fetch(FetchDescriptor<Document>())) ?? []
-        let documents = allDocuments
-            .filter { $0.resolvedProperty?.persistentModelID == property.persistentModelID }
-            .filter { Calendar.current.component(.year, from: $0.receiptDate) == taxYear }
+        // `resolvedProperty` verzweigt über mehrere optionale Beziehungen (Einheit, Mietverhältnis,
+        // Ausgabe, Nebenkostenabrechnung, Wirtschaftsgut) und lässt sich daher nicht in ein
+        // #Predicate fassen – die Jahresgrenze aber schon: das begrenzt den geladenen Datensatz bei
+        // vielen Belegen über mehrere Jahre spürbar, statt wie zuvor ausnahmslos alle Dokumente der
+        // App zu laden und erst danach zu filtern.
+        let calendar = Calendar.current
+        guard let yearStart = calendar.date(from: DateComponents(year: taxYear, month: 1, day: 1)),
+              let yearEnd = calendar.date(from: DateComponents(year: taxYear + 1, month: 1, day: 1)) else { return nil }
+        let predicate = #Predicate<Document> { $0.receiptDate >= yearStart && $0.receiptDate < yearEnd }
+        let descriptor = FetchDescriptor<Document>(predicate: predicate)
+        let documentsInYear = (try? property.modelContext?.fetch(descriptor)) ?? []
+        let documents = documentsInYear.filter { $0.resolvedProperty?.persistentModelID == property.persistentModelID }
         guard !documents.isEmpty else { return nil }
         let rows = documents.sorted { $0.receiptDate < $1.receiptDate }.map { document -> [String] in
             [document.receiptDate.asShortDate, document.title.isEmpty ? document.fileName : document.title, document.linkedToDescription]
