@@ -755,7 +755,7 @@ private struct TaxPDFFooter: View {
     var body: some View {
         HStack {
             Spacer()
-            Text("Seite \(pageNumber) von \(totalPages)")
+            Text("Seite \(String(pageNumber)) von \(String(totalPages))")
             Spacer()
         }
         .font(.system(size: 8))
@@ -860,7 +860,7 @@ private struct TaxPDFTOCPage: View {
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in
                     HStack {
-                        Text("\(index + 1). \(entry.title)")
+                        Text("\(String(index + 1)). \(entry.title)")
                         Spacer()
                         Text(String(entry.page)).font(.system(size: 12, design: layout == .formularraster ? .monospaced : .default))
                     }
@@ -951,6 +951,17 @@ private struct TaxPDFChapterPage: View {
         guard let lastIndex = rows.lastIndex(where: { $0.first?.hasPrefix("**") == true }) else { return rows }
         var copy = rows
         copy.remove(at: lastIndex)
+        // Falls die entfernte Zeile der einzige Inhalt ihres „##"-Abschnitts war, bliebe sonst eine
+        // leere Abschnittsüberschrift ohne jede Zeile darunter stehen (z.B. „ERGEBNIS" ohne
+        // Ergebniszeile, weil genau die in die Kennzahlen-Box oben gewandert ist) – die wird dann
+        // ebenfalls entfernt, statt als Karteileiche im Kapitel zu bleiben.
+        if lastIndex > 0, rows[lastIndex - 1].first?.hasPrefix("##") == true {
+            let isLastRow = lastIndex == rows.count - 1
+            let nextIsNewSection = !isLastRow && rows[lastIndex + 1].first?.hasPrefix("##") == true
+            if isLastRow || nextIsNewSection {
+                copy.remove(at: lastIndex - 1)
+            }
+        }
         return copy
     }
 
@@ -1201,7 +1212,7 @@ private struct TaxPDFChapterPage: View {
             Text(title)
                 .font(.system(size: 16, weight: .bold))
             Spacer()
-            Text(kind.taxYear.map { "STEUERJAHR \($0)" } ?? "ERSTANLAGE")
+            Text(kind.taxYear.map { "STEUERJAHR \(String($0))" } ?? "ERSTANLAGE")
                 .font(.system(size: 9, weight: .semibold, design: .monospaced))
                 .padding(.horizontal, 8)
                 .padding(.vertical, 3)
