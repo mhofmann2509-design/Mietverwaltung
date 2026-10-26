@@ -65,10 +65,45 @@ final class TaxCalculationTests: XCTestCase {
         XCTAssertEqual(property.buildingValue, 240_000, accuracy: 0.01)
     }
 
+    /// Deckt den im Design-Audit geforderten Fall ab, dass die Portfolio-Summen im Steuer-Cockpit
+    /// (`TaxModuleView`, Summe über alle Immobilien) auch bei Objekten ohne vollständige Stammdaten
+    /// nicht abstürzen und korrekt mit 0 statt mit falschen/undefinierten Werten in die Summe
+    /// einfließen – kein Kaufpreis, keine Einheiten, kein Baujahr.
+    func testPropertyWithoutMasterDataContributesZeroToPortfolioSums() {
+        let property = Property()
+        XCTAssertEqual(property.annualColdRent(forYear: 2026), 0)
+        XCTAssertEqual(property.werbungskosten(forYear: 2026), 0)
+        XCTAssertEqual(property.totalAfa(forYear: 2026), 0)
+        XCTAssertEqual(property.estimatedTaxableResult(forYear: 2026), 0)
+    }
+
     func testBuildingAfaRateByConstructionYear() {
         XCTAssertEqual(Property(constructionYear: 2024).defaultAfaRatePercent, 3.0)
         XCTAssertEqual(Property(constructionYear: 1920).defaultAfaRatePercent, 2.5)
         XCTAssertEqual(Property(constructionYear: 1960).defaultAfaRatePercent, 2.0)
+    }
+
+    /// Deckt die im Design-Audit geforderte Prüfung ab: der AfA-Report leitet seine „Jahresreihe
+    /// Gebäude" seit dem Fix aus `cumulativeBuildingAfA`/`remainingBuildingBookValue` ab, statt die
+    /// Jahresbeträge selbst unbegrenzt aufzusummieren. Ohne die Deckelung hier würde die Tabelle bei
+    /// einem weit in der Zukunft liegenden Betrachtungsjahr über den Gebäudewert hinaus abschreiben.
+    func testCumulativeBuildingAfaCapsAtBuildingValueAcrossManyYears() {
+        // Gebäudewert 240.000 € bei 2 %/Jahr → nach genau 50 Jahren vollständig abgeschrieben.
+        let property = Property(purchasePrice: 300_000, purchaseDate: calendarDate(2000, 1, 1), landValue: 60_000, constructionYear: 1998)
+        XCTAssertEqual(property.cumulativeBuildingAfA(uptoYear: 2049), 240_000, accuracy: 0.01)
+        XCTAssertEqual(property.remainingBuildingBookValue(afterYear: 2049), 0, accuracy: 0.01)
+
+        // Weit darüber hinaus (z.B. Report für ein Steuerjahr in ferner Zukunft gewählt) darf die
+        // kumulierte Summe nicht über den Gebäudewert hinauswachsen, auch wenn `buildingAfA(forYear:)`
+        // für sich genommen weiterhin den festen Jahresbetrag zurückgibt.
+        XCTAssertEqual(property.buildingAfA(forYear: 2080), 4_800, accuracy: 0.01)
+        XCTAssertEqual(property.cumulativeBuildingAfA(uptoYear: 2080), 240_000, accuracy: 0.01)
+        XCTAssertEqual(property.remainingBuildingBookValue(afterYear: 2080), 0, accuracy: 0.01)
+
+        // Der im AfA-Report verwendete Jahresbetrag (Differenz zur Vorjahres-Kumulation) muss nach
+        // vollständiger Abschreibung auf 0 fallen, nicht weiter den festen Jahressatz ausweisen.
+        let deltaAfterFullDepreciation = property.cumulativeBuildingAfA(uptoYear: 2080) - property.cumulativeBuildingAfA(uptoYear: 2079)
+        XCTAssertEqual(deltaAfterFullDepreciation, 0, accuracy: 0.01)
     }
 
     func testManualAfaRateOverrideIsNotSilentlyIgnored() {

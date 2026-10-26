@@ -298,12 +298,17 @@ enum TaxReportPDFBuilder {
             let currentCalendarYear = Calendar.current.component(.year, from: .now)
             let endYear = max(taxYear, startYear + 9)
             if startYear <= endYear {
-                var cumulative = 0.0
+                var previousCumulative = 0.0
                 var yearRows: [[String]] = []
                 for year in startYear...endYear {
-                    let amount = property.buildingAfA(forYear: year)
-                    cumulative += amount
-                    let remaining = max(0, property.buildingValue - cumulative)
+                    // `cumulativeBuildingAfA`/`remainingBuildingBookValue` deckeln bereits auf den
+                    // Gebäudewert; der Jahresbetrag ergibt sich als Differenz zur Vorjahres-Summe,
+                    // damit die Reihe bei vollständiger Abschreibung korrekt auf 0 fällt, statt den
+                    // festen Jahressatz unbegrenzt über den Gebäudewert hinaus weiterzuzählen.
+                    let cumulative = property.cumulativeBuildingAfA(uptoYear: year)
+                    let amount = cumulative - previousCumulative
+                    previousCumulative = cumulative
+                    let remaining = property.remainingBuildingBookValue(afterYear: year)
                     let status: String
                     if year == taxYear { status = "gewähltes Jahr" }
                     else if year < currentCalendarYear { status = "historisch" }
