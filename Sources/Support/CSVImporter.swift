@@ -55,9 +55,17 @@ enum CSVImporter {
 
     private static func parseAmount(_ raw: String) -> Double? {
         var value = raw.trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "€", with: "").trimmingCharacters(in: .whitespaces)
+        guard !value.isEmpty else { return nil }
         if value.contains(",") {
+            // Deutsches Format: "." ist Tausendertrenner, "," ist Dezimaltrennzeichen.
             value = value.replacingOccurrences(of: ".", with: "")
             value = value.replacingOccurrences(of: ",", with: ".")
+        } else if let lastDot = value.lastIndex(of: "."), value.distance(from: lastDot, to: value.endIndex) == 4 {
+            // Kein Komma, aber ein Punkt mit genau drei Nachkommastellen: für einen Geldbetrag kein
+            // Dezimaltrennzeichen (Cent-Beträge haben höchstens zwei Nachkommastellen), sondern ein
+            // deutscher Tausendertrenner ohne angegebene Cent-Stellen (z.B. "1.234" = 1.234 €, nicht
+            // 1,234 €) – sonst würde ein solcher Betrag um den Faktor 1000 zu klein eingelesen.
+            value = value.replacingOccurrences(of: ".", with: "")
         }
         return Double(value)
     }
