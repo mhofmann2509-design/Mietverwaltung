@@ -392,7 +392,7 @@ struct PropertyDetailView: View {
                         .padding(.vertical, 4)
                     }
                     NavigationLink("Steuerreport fürs Finanzamt") {
-                        TaxReportView(property: property, initialYear: selectedTaxYear)
+                        TaxModulePropertyView(property: property, initialYear: selectedTaxYear)
                     }
                 } header: {
                     Text("Ausgaben nach Steuerart \(String(selectedTaxYear))")
