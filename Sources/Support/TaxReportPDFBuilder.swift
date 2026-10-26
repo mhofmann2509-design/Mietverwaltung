@@ -4,8 +4,10 @@ import PDFKit
 
 /// Welcher der beiden getrennten Steuerreports erzeugt werden soll (siehe Auftrag Abschnitt 3,
 /// Modus A/B): die einmalige Erstanlage (Objekt-/Anschaffungsdaten, AfA-Herleitung, 15-%-Grenze,
-/// Möbelverzeichnis) oder der laufende Betrieb eines bestimmten Steuerjahres (Werbungskosten,
-/// Einnahmen, Belege, Jahres-Checkliste).
+/// Möbelverzeichnis) oder der laufende Betrieb eines bestimmten Steuerjahres (Anlage V,
+/// AfA-Herleitung, Erhaltungsaufwand/sonstige Werbungskosten, Belegverzeichnis). Beide Reports
+/// sind reine PDF-Unterlagen fürs Finanzamt und enthalten bewusst keine Checkliste – die
+/// Vorbereitungs-Checkliste ist ein reines Bildschirm-Werkzeug in TaxModulePropertyView.
 enum TaxReportKind {
     case initialSetup
     case ongoing(taxYear: Int)
@@ -119,6 +121,7 @@ enum TaxReportPDFBuilder {
             addAll(buildThresholdChapters(property: property), otherwiseWarn: "15-%-Grenze")
         case .ongoing(let taxYear):
             add(buildAnlageVChapter(property: property, taxYear: taxYear), otherwiseWarn: "Anlage V – Einnahmen und Werbungskosten")
+            addAll(buildAfaChapters(property: property, taxYear: taxYear), otherwiseWarn: "AfA-Herleitung")
             add(buildMaintenanceChapter(property: property, taxYear: taxYear), otherwiseWarn: "Erhaltungsaufwand und Herstellungskosten – Einzelnachweis")
             add(buildOtherExpensesChapter(property: property, taxYear: taxYear), otherwiseWarn: "Sonstige Werbungskosten – Einzelnachweis")
             add(buildDocumentsChapter(property: property, taxYear: taxYear), otherwiseWarn: "Belegverzeichnis \(String(taxYear))")
