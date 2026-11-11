@@ -82,8 +82,7 @@ enum ReceiptOCR {
         let matches = regex.matches(in: text, range: NSRange(location: 0, length: nsText.length))
         guard let last = matches.last else { return nil }
         let raw = nsText.substring(with: last.range)
-        let normalized = raw.replacingOccurrences(of: ".", with: "").replacingOccurrences(of: ",", with: ".")
-        return Double(normalized)
+        return raw.parsedDecimal
     }
 
     private static func strippingTrailingAmount(from text: String) -> String {

@@ -1,6 +1,14 @@
 import SwiftUI
 import SwiftData
 
+/// Eine in Bearbeitung befindliche Staffelmiet-Stufe – vor dem Speichern nur als Entwurf
+/// gehalten, analog zu `LineItemDraft` bei den Nebenkosten-Positionen.
+private struct RentStepDraft: Identifiable {
+    let id = UUID()
+    var effectiveDate: Date
+    var coldRentText: String
+}
+
 struct TenancyEditView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
@@ -21,11 +29,54 @@ struct TenancyEditView: View {
     @State private var utilityAdvanceText = ""
     @State private var depositText = ""
     @State private var depositReceived = false
+    @State private var hasDepositReturnedAt = false
+    @State private var depositReturnedAt = Date.now
     @State private var noticePeriodMonths = 3
     @State private var occupantCount = 1
     @State private var notes = ""
+    @State private var showingDeleteConfirmation = false
+
+    @State private var contractType: TenancyContractType = .standard
+    @State private var hasLastRentIncreaseDate = false
+    @State private var lastRentIncreaseDate = Date.now
+    @State private var hasLastIndexAdjustmentDate = false
+    @State private var lastIndexAdjustmentDate = Date.now
+    @State private var rentStepDrafts: [RentStepDraft] = []
+
+    @State private var hasModernizationAnnouncedAt = false
+    @State private var modernizationAnnouncedAt = Date.now
+    @State private var hasModernizationIncreaseDeclaredAt = false
+    @State private var modernizationIncreaseDeclaredAt = Date.now
 
     private var isNew: Bool { tenancy == nil }
+
+    /// Live-Vorschau der Mieterhöhungs-Frist/-Möglichkeit anhand der aktuellen Formular-Eingabe
+    /// (noch bevor gespeichert wird) – nutzt dieselbe Berechnung wie `RemindersEngine`.
+    private var rentIncreaseAdvice: RentIncreaseAdvisor.Advice {
+        RentIncreaseAdvisor.advice(
+            contractType: contractType,
+            startDate: startDate,
+            lastRentIncreaseDate: hasLastRentIncreaseDate ? lastRentIncreaseDate : nil,
+            lastIndexAdjustmentDate: hasLastIndexAdjustmentDate ? lastIndexAdjustmentDate : nil,
+            upcomingStaffelDates: rentStepDrafts.map(\.effectiveDate)
+        )
+    }
+
+    /// Kombiniert die beiden Modernisierungs-Hinweise (§ 555c/§ 559b BGB) zu einem Fließtext –
+    /// zeigt nur das, was anhand der aktuell gesetzten Daten berechnet werden kann.
+    private var modernizationFooterText: String {
+        var parts: [String] = []
+        if hasModernizationAnnouncedAt, let earliestStart = RentIncreaseAdvisor.modernizationEarliestStartDate(announcedAt: modernizationAnnouncedAt) {
+            parts.append("Frühester Beginn der Maßnahme (§ 555c BGB, 3 Monate nach Ankündigung): \(earliestStart.asShortDate).")
+        }
+        if hasModernizationIncreaseDeclaredAt, let effectiveDate = RentIncreaseAdvisor.modernizationIncreaseEffectiveDate(declaredAt: modernizationIncreaseDeclaredAt) {
+            parts.append("Erhöhte Miete zu entrichten ab (§ 559b Abs. 2 BGB, Beginn des 3. Monats nach Zugang): \(effectiveDate.asShortDate).")
+        }
+        if parts.isEmpty {
+            parts.append("Nur bei einer Modernisierungsmieterhöhung relevant (§ 555c/§ 559b BGB), zusätzlich zur regulären Mieterhöhung oben möglich.")
+        }
+        return parts.joined(separator: " ")
+    }
 
     var body: some View {
         NavigationStack {
@@ -79,12 +130,79 @@ struct TenancyEditView: View {
                         #endif
                 }
 
-                Section("Kaution") {
+                Section {
+                    Picker("Vertragsart", selection: $contractType) {
+                        ForEach(TenancyContractType.allCases) { type in
+                            Text(type.label).tag(type)
+                        }
+                    }
+
+                    switch contractType {
+                    case .standard:
+                        Toggle("Letzte Mieterhöhung erfasst", isOn: $hasLastRentIncreaseDate)
+                        if hasLastRentIncreaseDate {
+                            DatePicker("Letzte Mieterhöhung", selection: $lastRentIncreaseDate, displayedComponents: .date)
+                        }
+                    case .index:
+                        Toggle("Letzte Indexanpassung erfasst", isOn: $hasLastIndexAdjustmentDate)
+                        if hasLastIndexAdjustmentDate {
+                            DatePicker("Letzte Indexanpassung", selection: $lastIndexAdjustmentDate, displayedComponents: .date)
+                        }
+                    case .staffel:
+                        ForEach($rentStepDrafts) { $draft in
+                            HStack {
+                                DatePicker("Stufe ab", selection: $draft.effectiveDate, displayedComponents: .date)
+                                    .labelsHidden()
+                                TextField("Kaltmiete (€)", text: $draft.coldRentText)
+                                    #if os(iOS)
+                                    .keyboardType(.decimalPad)
+                                    #endif
+                            }
+                        }
+                        .onDelete { rentStepDrafts.remove(atOffsets: $0) }
+                        Button("Stufe hinzufügen") {
+                            rentStepDrafts.append(RentStepDraft(effectiveDate: .now, coldRentText: ""))
+                        }
+                    }
+                } header: {
+                    Text("Mietvertragsart")
+                } footer: {
+                    Text(rentIncreaseAdvice.nextPossibleDate.map { "\(rentIncreaseAdvice.hint) Nächstmöglicher Termin: \($0.asShortDate)." } ?? rentIncreaseAdvice.hint)
+                }
+
+                Section {
                     TextField("Kaution (€)", text: $depositText)
                         #if os(iOS)
                         .keyboardType(.decimalPad)
                         #endif
                     Toggle("Kaution erhalten", isOn: $depositReceived)
+                    if hasEndDate {
+                        Toggle("Kaution zurückgezahlt", isOn: $hasDepositReturnedAt)
+                        if hasDepositReturnedAt {
+                            DatePicker("Rückzahlung am", selection: $depositReturnedAt, displayedComponents: .date)
+                        }
+                    }
+                } header: {
+                    Text("Kaution")
+                } footer: {
+                    if hasEndDate && !hasDepositReturnedAt {
+                        Text("Keine feste gesetzliche Frist – die Rechtsprechung sieht i.d.R. bis zu sechs Monate nach Mietende als übliche Obergrenze für die Abrechnung an.")
+                    }
+                }
+
+                Section {
+                    Toggle("Modernisierung angekündigt", isOn: $hasModernizationAnnouncedAt)
+                    if hasModernizationAnnouncedAt {
+                        DatePicker("Ankündigung vom", selection: $modernizationAnnouncedAt, displayedComponents: .date)
+                    }
+                    Toggle("Mieterhöhungserklärung nach Modernisierung zugegangen", isOn: $hasModernizationIncreaseDeclaredAt)
+                    if hasModernizationIncreaseDeclaredAt {
+                        DatePicker("Zugegangen am", selection: $modernizationIncreaseDeclaredAt, displayedComponents: .date)
+                    }
+                } header: {
+                    Text("Modernisierung")
+                } footer: {
+                    Text(modernizationFooterText)
                 }
 
                 Section("Notizen") {
@@ -92,10 +210,18 @@ struct TenancyEditView: View {
                         .lineLimit(3...6)
                 }
 
+                ValidationMessagesSection(messages: validationMessages)
+
                 if !isNew {
                     Section {
                         Button("Mietvertrag löschen", role: .destructive) {
-                            deleteTenancy()
+                            showingDeleteConfirmation = true
+                        }
+                        .confirmationDialog("Mietvertrag löschen?", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
+                            Button("Endgültig löschen", role: .destructive) { deleteTenancy() }
+                            Button("Abbrechen", role: .cancel) {}
+                        } message: {
+                            Text("Alle erfassten Mietzahlungen (\(tenancy?.payments?.count ?? 0)), Mietstaffeln und zugeordneten Dokumente dieses Mietvertrags werden mitgelöscht. Dieser Schritt kann nicht rückgängig gemacht werden.")
                         }
                     }
                 }
@@ -130,9 +256,23 @@ struct TenancyEditView: View {
         }
     }
 
+    private var validationMessages: [String] {
+        var messages: [String?] = [
+            FormValidation.dateOrder(start: startDate, end: hasEndDate ? endDate : nil, endLabel: "Ende des Mietverhältnisses"),
+            FormValidation.number(coldRentText, "Kaltmiete"),
+            FormValidation.number(utilityAdvanceText, "Nebenkostenvorauszahlung"),
+            FormValidation.number(depositText, "Kaution")
+        ]
+        if contractType == .staffel {
+            messages += rentStepDrafts.map { FormValidation.number($0.coldRentText, "Kaltmiete der Staffelstufe ab \($0.effectiveDate.asShortDate)", required: true) }
+        }
+        return messages.compactMap { $0 }
+    }
+
     private var canSave: Bool {
+        guard validationMessages.isEmpty else { return false }
         if creatingNewTenant {
-            return !newTenantFirstName.isEmpty || !newTenantLastName.isEmpty
+            return !newTenantFirstName.trimmingCharacters(in: .whitespaces).isEmpty || !newTenantLastName.trimmingCharacters(in: .whitespaces).isEmpty
         }
         return selectedTenant != nil
     }
@@ -149,18 +289,42 @@ struct TenancyEditView: View {
             utilityAdvanceText = tenancy.utilityAdvance == 0 ? "" : String(tenancy.utilityAdvance)
             depositText = tenancy.deposit == 0 ? "" : String(tenancy.deposit)
             depositReceived = tenancy.depositReceived
+            if let date = tenancy.depositReturnedAt {
+                hasDepositReturnedAt = true
+                depositReturnedAt = date
+            }
             noticePeriodMonths = tenancy.noticePeriodMonths
             occupantCount = tenancy.occupantCount
             notes = tenancy.notes
+            contractType = tenancy.contractType
+            if let date = tenancy.lastRentIncreaseDate {
+                hasLastRentIncreaseDate = true
+                lastRentIncreaseDate = date
+            }
+            if let date = tenancy.lastIndexAdjustmentDate {
+                hasLastIndexAdjustmentDate = true
+                lastIndexAdjustmentDate = date
+            }
+            rentStepDrafts = (tenancy.rentSteps ?? [])
+                .sorted { $0.effectiveDate < $1.effectiveDate }
+                .map { RentStepDraft(effectiveDate: $0.effectiveDate, coldRentText: String($0.coldRent)) }
+            if let date = tenancy.modernizationAnnouncedAt {
+                hasModernizationAnnouncedAt = true
+                modernizationAnnouncedAt = date
+            }
+            if let date = tenancy.modernizationIncreaseDeclaredAt {
+                hasModernizationIncreaseDeclaredAt = true
+                modernizationIncreaseDeclaredAt = date
+            }
         } else if allTenants.isEmpty {
             creatingNewTenant = true
         }
     }
 
     private func save() {
-        let coldRent = Double(coldRentText.replacingOccurrences(of: ",", with: ".")) ?? 0
-        let utilityAdvance = Double(utilityAdvanceText.replacingOccurrences(of: ",", with: ".")) ?? 0
-        let deposit = Double(depositText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let coldRent = coldRentText.parsedDecimal ?? 0
+        let utilityAdvance = utilityAdvanceText.parsedDecimal ?? 0
+        let deposit = depositText.parsedDecimal ?? 0
 
         let tenant: Tenant
         if creatingNewTenant {
@@ -172,6 +336,7 @@ struct TenancyEditView: View {
             return
         }
 
+        let resolvedTenancy: Tenancy
         if let tenancy {
             tenancy.tenant = tenant
             tenancy.startDate = startDate
@@ -183,6 +348,7 @@ struct TenancyEditView: View {
             tenancy.noticePeriodMonths = noticePeriodMonths
             tenancy.occupantCount = occupantCount
             tenancy.notes = notes
+            resolvedTenancy = tenancy
         } else {
             let newTenancy = Tenancy(
                 startDate: startDate,
@@ -198,7 +364,28 @@ struct TenancyEditView: View {
             newTenancy.unit = unit
             newTenancy.tenant = tenant
             modelContext.insert(newTenancy)
+            resolvedTenancy = newTenancy
         }
+
+        resolvedTenancy.contractType = contractType
+        resolvedTenancy.lastRentIncreaseDate = hasLastRentIncreaseDate ? lastRentIncreaseDate : nil
+        resolvedTenancy.lastIndexAdjustmentDate = hasLastIndexAdjustmentDate ? lastIndexAdjustmentDate : nil
+        resolvedTenancy.depositReturnedAt = (hasEndDate && hasDepositReturnedAt) ? depositReturnedAt : nil
+        resolvedTenancy.modernizationAnnouncedAt = hasModernizationAnnouncedAt ? modernizationAnnouncedAt : nil
+        resolvedTenancy.modernizationIncreaseDeclaredAt = hasModernizationIncreaseDeclaredAt ? modernizationIncreaseDeclaredAt : nil
+
+        for existingStep in resolvedTenancy.rentSteps ?? [] {
+            modelContext.delete(existingStep)
+        }
+        if contractType == .staffel {
+            for draft in rentStepDrafts {
+                let coldRent = draft.coldRentText.parsedDecimal ?? 0
+                let step = RentStep(effectiveDate: draft.effectiveDate, coldRent: coldRent)
+                step.tenancy = resolvedTenancy
+                modelContext.insert(step)
+            }
+        }
+
         dismiss()
     }
 

@@ -20,6 +20,11 @@ settings:
     ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
     SWIFT_EMIT_LOC_STRINGS: YES
 
+packages:
+  ZIPFoundation:
+    url: https://github.com/weichsel/ZIPFoundation
+    from: 0.9.19
+
 targets:
   Mietverwaltung-iOS:
     type: application
@@ -29,12 +34,20 @@ targets:
       - path: Sources
       - path: Resources/Assets.xcassets
       - path: Resources/PreviewContent
+    dependencies:
+      - package: ZIPFoundation
+    entitlements:
+      path: Mietverwaltung-iOS.entitlements
+      properties:
+        com.apple.developer.icloud-container-identifiers: [iCloud.com.marcelhofmann.mietverwaltung]
+        com.apple.developer.icloud-services: [CloudKit]
     settings:
       base:
         TARGETED_DEVICE_FAMILY: "1,2"
         INFOPLIST_KEY_UILaunchScreen_Generation: YES
         DEVELOPMENT_ASSET_PATHS: "Resources/PreviewContent"
         INFOPLIST_KEY_NSCameraUsageDescription: "Wird verwendet, um Belege (Rechnungen, Quittungen) direkt einzuscannen."
+        INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: "Wird verwendet, um Termine wie die Eigentümerversammlung als Kalendereintrag mit Erinnerung anzulegen."
 
   Mietverwaltung-macOS:
     type: application
@@ -43,10 +56,18 @@ targets:
     sources:
       - path: Sources
       - path: Resources/Assets.xcassets
+    dependencies:
+      - package: ZIPFoundation
+    entitlements:
+      path: Mietverwaltung-macOS.entitlements
+      properties:
+        com.apple.developer.icloud-container-identifiers: [iCloud.com.marcelhofmann.mietverwaltung]
+        com.apple.developer.icloud-services: [CloudKit]
     settings:
       base:
         COMBINE_HIDPI_IMAGES: YES
         INFOPLIST_KEY_NSHumanReadableCopyright: ""
+        INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription: "Wird verwendet, um Termine wie die Eigentümerversammlung als Kalendereintrag mit Erinnerung anzulegen."
 
   MietverwaltungTests:
     type: bundle.unit-test

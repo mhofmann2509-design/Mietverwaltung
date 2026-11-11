@@ -5,13 +5,7 @@ import SwiftData
 @MainActor
 enum PreviewData {
     static let container: ModelContainer = {
-        let schema = Schema([
-            Property.self, Unit.self, Tenant.self, Tenancy.self, RentPayment.self, Expense.self, Document.self,
-            DepreciableAsset.self, UtilityStatement.self, UtilityCostLineItem.self, Landlord.self,
-            RemainingUsefulLifeAppraisal.self, WirtschaftsplanStatement.self, WirtschaftsplanLineItem.self,
-            TrackedYear.self, TaxChecklistItem.self, ThreeYearThresholdCase.self, ThresholdExpenseAssessment.self,
-            CapitalizationDecision.self, TravelExpense.self, HomeOfficeEntry.self
-        ])
+        let schema = AppSchema.schema
         let configuration = ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)
         let container = try! ModelContainer(for: schema, configurations: [configuration])
         let context = container.mainContext

@@ -12,13 +12,7 @@ final class TaxCalculationTests: XCTestCase {
     private var context: ModelContext!
 
     override func setUpWithError() throws {
-        let schema = Schema([
-            Property.self, Unit.self, Tenant.self, Tenancy.self, RentPayment.self, Expense.self, Document.self,
-            DepreciableAsset.self, UtilityStatement.self, UtilityCostLineItem.self, Landlord.self,
-            RemainingUsefulLifeAppraisal.self, WirtschaftsplanStatement.self, WirtschaftsplanLineItem.self,
-            TrackedYear.self, TaxChecklistItem.self, ThreeYearThresholdCase.self, ThresholdExpenseAssessment.self,
-            CapitalizationDecision.self, TravelExpense.self, HomeOfficeEntry.self
-        ])
+        let schema = AppSchema.schema
         container = try ModelContainer(for: schema, configurations: [ModelConfiguration(schema: schema, isStoredInMemoryOnly: true)])
         context = container.mainContext
     }
@@ -44,6 +38,26 @@ final class TaxCalculationTests: XCTestCase {
         XCTAssertEqual(property.buildingAfA(forYear: 2024), expected, accuracy: 0.01)
         XCTAssertEqual(property.buildingAfA(forYear: 2025), 240_000 * 0.02, accuracy: 0.01)
         XCTAssertEqual(property.buildingAfA(forYear: 2023), 0)
+    }
+
+    func testBuildingAfaUsesEconomicTransferDateOverPurchaseDateWhenSet() {
+        // Beurkundung im Januar, Übergang Nutzen/Lasten erst im Juli – maßgeblich für den
+        // AfA-Beginn ist der Übergang (§7 EStG), nicht das Beurkundungsdatum.
+        let property = Property(purchasePrice: 300_000, purchaseDate: calendarDate(2024, 1, 10), landValue: 60_000, constructionYear: 1998)
+        property.economicTransferDate = calendarDate(2024, 7, 15)
+        let expected = 240_000 * 0.02 * 6.0 / 12.0
+        XCTAssertEqual(property.buildingAfA(forYear: 2024), expected, accuracy: 0.01, "Ohne Übergangsdatum würde der volle Jahresbetrag ab Januar berechnet statt anteilig ab Juli.")
+        XCTAssertEqual(property.afaStartDate, property.economicTransferDate)
+    }
+
+    func testBuildingAfaFallsBackToPurchaseDateWithoutEconomicTransferDate() {
+        // Unverändertes Verhalten für Properties ohne erfassten Übergang – keine rückwirkende
+        // Änderung bereits angezeigter AfA-Werte.
+        let property = Property(purchasePrice: 300_000, purchaseDate: calendarDate(2024, 7, 15), landValue: 60_000, constructionYear: 1998)
+        XCTAssertNil(property.economicTransferDate)
+        XCTAssertEqual(property.afaStartDate, property.purchaseDate)
+        let expected = 240_000 * 0.02 * 6.0 / 12.0
+        XCTAssertEqual(property.buildingAfA(forYear: 2024), expected, accuracy: 0.01)
     }
 
     func testBuildingValueApportionsAncillaryCostsByLandPercentage() {
@@ -250,6 +264,53 @@ final class TaxCalculationTests: XCTestCase {
 
         XCTAssertEqual(thresholdCase.missingNetAmountExpenses.count, 1)
         XCTAssertEqual(thresholdCase.status, .notConclusivelyCheckable)
+    }
+
+    func testPossibleAdditionalAmountIncludesCertainPositionsWithMissingNetAmount() {
+        // Regressionstest: eine bereits als "sicher einzubeziehen" eingestufte Position ohne
+        // hinterlegten USt-Satz trug früher lautlos mit 0 € zu `includedNetTotal` bei und wurde
+        // auch nicht in `possibleAdditionalAmount` sichtbar – die Kennzahl "X € von Y €" verschleierte
+        // dadurch, dass tatsächlich noch ein offener Betrag im Raum steht.
+        let property = Property(purchasePrice: 300_000, purchaseDate: calendarDate(2023, 1, 1), landValue: 60_000)
+        context.insert(property)
+        let thresholdCase = ThreeYearThresholdCase(periodStart: calendarDate(2023, 1, 1), periodEnd: calendarDate(2025, 12, 31))
+        thresholdCase.property = property
+        context.insert(thresholdCase)
+
+        let expense = Expense(date: calendarDate(2023, 6, 1), amount: 1_190, title: "Malerarbeiten", taxTreatment: .maintenanceExpense)
+        expense.property = property
+        context.insert(expense)
+
+        thresholdCase.ensureAssessments(context: context)
+        thresholdCase.assessment(for: expense)?.status = .certain
+
+        XCTAssertEqual(thresholdCase.includedNetTotal, 0, "Ohne Netto-Betrag fließt die Position weiterhin mit 0 € in die gesicherte Summe ein.")
+        XCTAssertGreaterThan(thresholdCase.possibleAdditionalAmount, 0, "Die Position muss trotz fehlenden Netto-Betrags als möglicher zusätzlicher Betrag sichtbar bleiben, nicht lautlos verschwinden.")
+        XCTAssertEqual(thresholdCase.possibleAdditionalAmount, 1_190 / 1.19, accuracy: 0.01)
+    }
+
+    func testPossibleAdditionalAmountIncludesUnclassifiedPositionsWithMissingNetAmount() {
+        // Regressionstest für dieselbe Fehlerklasse wie oben, aber für eine noch gar nicht
+        // eingeordnete (nicht "sicher") Position: der erste Fix deckte nur den klassifizierten
+        // Fall ab; eine unklassifizierte Position ohne USt.-Satz fiel weiterhin lautlos mit 0 €
+        // aus `possibleAdditionalAmount`, obwohl sie der häufigste Fall ist (frisch importierte,
+        // noch nicht geprüfte Ausgabe).
+        let property = Property(purchasePrice: 300_000, purchaseDate: calendarDate(2023, 1, 1), landValue: 60_000)
+        context.insert(property)
+        let thresholdCase = ThreeYearThresholdCase(periodStart: calendarDate(2023, 1, 1), periodEnd: calendarDate(2025, 12, 31))
+        thresholdCase.property = property
+        context.insert(thresholdCase)
+
+        let expense = Expense(date: calendarDate(2023, 6, 1), amount: 1_190, title: "Dachreparatur", taxTreatment: .maintenanceExpense)
+        expense.property = property
+        context.insert(expense)
+
+        thresholdCase.ensureAssessments(context: context)
+        // Bewusst keine Statusänderung – bleibt `.unclassified`.
+
+        XCTAssertEqual(thresholdCase.assessment(for: expense)?.status, .unclassified)
+        XCTAssertGreaterThan(thresholdCase.possibleAdditionalAmount, 0, "Eine unklassifizierte Position ohne Netto-Betrag muss ebenfalls als möglicher Betrag sichtbar bleiben.")
+        XCTAssertEqual(thresholdCase.possibleAdditionalAmount, 1_190 / 1.19, accuracy: 0.01)
     }
 
     func testThresholdCaseExcludesOtherDeductibleAndCapitalizedExpenses() {
@@ -753,5 +814,155 @@ final class TaxCalculationTests: XCTestCase {
 
         // Folgejahr: volle Jahres-AfA auf das Wirtschaftsgut.
         XCTAssertEqual(property.totalAfa(forYear: 2024), 4_800 + 20_000 * 0.02, accuracy: 0.01)
+    }
+
+    // MARK: - Einzelposten der Anschaffungsnebenkosten (Makler/Notar/Auflassungsvormerkung)
+
+    func testHasItemizedAncillaryCostsIsFalseWhenAllPositionsAreZero() {
+        let property = Property(purchasePrice: 300_000, purchaseAncillaryCosts: 28_000, landValue: 60_000)
+        XCTAssertFalse(property.hasItemizedAncillaryCosts)
+        XCTAssertEqual(property.purchaseOtherAncillaryCosts, 28_000, accuracy: 0.01)
+    }
+
+    func testHasItemizedAncillaryCostsIsTrueAsSoonAsOnePositionIsSet() {
+        let property = Property(purchasePrice: 300_000, purchaseAncillaryCosts: 28_000, landValue: 60_000)
+        property.purchaseBrokerCosts = 10_000
+        XCTAssertTrue(property.hasItemizedAncillaryCosts)
+    }
+
+    func testPurchaseOtherAncillaryCostsIsTheReconcilingResidual() {
+        let property = Property(purchasePrice: 300_000, purchaseAncillaryCosts: 28_000, landValue: 60_000)
+        property.purchaseBrokerCosts = 10_000
+        property.purchaseNotaryCosts = 5_000
+        property.purchaseLandRegistryCosts = 500
+        // 28.000 − 10.000 − 5.000 − 500 = 12.500 Rest, der nicht in den Einzelposten erfasst ist.
+        XCTAssertEqual(property.purchaseOtherAncillaryCosts, 12_500, accuracy: 0.01)
+    }
+
+    func testPurchaseOtherAncillaryCostsWithOnlyOnePositionMaintained() {
+        // Nur Maklerkosten gepflegt, Notar/Auflassungsvormerkung bleiben bei 0 – der Rest muss
+        // trotzdem korrekt als „Sonstige“ berechnet werden, nicht nur bei vollständiger Pflege.
+        let property = Property(purchasePrice: 300_000, purchaseAncillaryCosts: 6_500, landValue: 60_000)
+        property.purchaseBrokerCosts = 3_500
+        XCTAssertTrue(property.hasItemizedAncillaryCosts)
+        XCTAssertEqual(property.purchaseOtherAncillaryCosts, 3_000, accuracy: 0.01)
+    }
+
+    func testPurchaseOtherAncillaryCostsNeverGoesNegativeWhenItemsExceedTheTotal() {
+        // Einzelposten dürfen die Gesamtsumme übersteigen (z.B. unvollständig gepflegte Summe) –
+        // der Rest darf dadurch nie negativ werden, nur auf 0 gedeckelt.
+        let property = Property(purchasePrice: 300_000, purchaseAncillaryCosts: 1_000, landValue: 60_000)
+        property.purchaseBrokerCosts = 3_000
+        XCTAssertEqual(property.purchaseOtherAncillaryCosts, 0, accuracy: 0.01)
+    }
+
+    func testItemizedAncillaryCostsDoNotChangeTotalAcquisitionCostOrBuildingValue() {
+        // Die Einzelposten sind rein zur Darstellung gedacht – `purchaseAncillaryCosts` bleibt die
+        // für alle Berechnungen maßgebliche Summe, unabhängig davon, ob/wie sie aufgeschlüsselt ist.
+        let withoutBreakdown = Property(purchasePrice: 300_000, purchaseAncillaryCosts: 28_000, landValue: 60_000)
+        let withBreakdown = Property(purchasePrice: 300_000, purchaseAncillaryCosts: 28_000, landValue: 60_000)
+        withBreakdown.purchaseBrokerCosts = 10_000
+        withBreakdown.purchaseNotaryCosts = 5_000
+        withBreakdown.purchaseLandRegistryCosts = 500
+
+        XCTAssertEqual(withoutBreakdown.totalAcquisitionCost, withBreakdown.totalAcquisitionCost, accuracy: 0.01)
+        XCTAssertEqual(withoutBreakdown.buildingValue, withBreakdown.buildingValue, accuracy: 0.01)
+        XCTAssertEqual(withoutBreakdown.apportionedLandValue, withBreakdown.apportionedLandValue, accuracy: 0.01)
+    }
+
+    // MARK: - Mieterhöhung (RentIncreaseAdvisor)
+
+    func testStandardContractNextIncreaseIs15MonthsAfterStartWithoutPriorIncrease() {
+        let start = calendarDate(2024, 1, 1)
+        let advice = RentIncreaseAdvisor.advice(contractType: .standard, startDate: start, lastRentIncreaseDate: nil, lastIndexAdjustmentDate: nil, upcomingStaffelDates: [])
+        XCTAssertEqual(advice.nextPossibleDate, calendarDate(2025, 4, 1))
+    }
+
+    func testStandardContractNextIncreaseIs15MonthsAfterLastIncreaseNotStartDate() {
+        let start = calendarDate(2020, 1, 1)
+        let lastIncrease = calendarDate(2024, 1, 1)
+        let advice = RentIncreaseAdvisor.advice(contractType: .standard, startDate: start, lastRentIncreaseDate: lastIncrease, lastIndexAdjustmentDate: nil, upcomingStaffelDates: [])
+        XCTAssertEqual(advice.nextPossibleDate, calendarDate(2025, 4, 1))
+    }
+
+    func testIndexContractNextAdjustmentIs12MonthsAfterLastAdjustment() {
+        let start = calendarDate(2020, 1, 1)
+        let lastAdjustment = calendarDate(2024, 6, 1)
+        let advice = RentIncreaseAdvisor.advice(contractType: .index, startDate: start, lastRentIncreaseDate: nil, lastIndexAdjustmentDate: lastAdjustment, upcomingStaffelDates: [])
+        XCTAssertEqual(advice.nextPossibleDate, calendarDate(2025, 6, 1))
+    }
+
+    func testStaffelContractNextDateIsEarliestFutureStep() {
+        let today = calendarDate(2025, 1, 1)
+        let dates = [calendarDate(2024, 6, 1), calendarDate(2026, 1, 1), calendarDate(2025, 6, 1)]
+        let advice = RentIncreaseAdvisor.advice(contractType: .staffel, startDate: calendarDate(2023, 1, 1), lastRentIncreaseDate: nil, lastIndexAdjustmentDate: nil, upcomingStaffelDates: dates, today: today)
+        XCTAssertEqual(advice.nextPossibleDate, calendarDate(2025, 6, 1))
+    }
+
+    func testStaffelContractWithNoFutureStepsHasNoNextDate() {
+        let today = calendarDate(2025, 1, 1)
+        let advice = RentIncreaseAdvisor.advice(contractType: .staffel, startDate: calendarDate(2023, 1, 1), lastRentIncreaseDate: nil, lastIndexAdjustmentDate: nil, upcomingStaffelDates: [calendarDate(2024, 6, 1)], today: today)
+        XCTAssertNil(advice.nextPossibleDate)
+    }
+
+    // MARK: - Steuererklärungs-Frist (TaxFilingStatus, § 149 AO)
+
+    func testUnrepresentedDeadlineIsJuly31OfFollowingYear() {
+        let status = TaxFilingStatus(taxYear: 2024)
+        XCTAssertEqual(status.legalDeadline(usesTaxAdvisor: false), calendarDate(2025, 7, 31))
+    }
+
+    func testRepresentedDeadlineIsLastDayOfFebruaryTwoYearsLater() {
+        let status = TaxFilingStatus(taxYear: 2024)
+        XCTAssertEqual(status.legalDeadline(usesTaxAdvisor: true), calendarDate(2026, 2, 28))
+    }
+
+    func testDeadlineOverrideTakesPrecedenceOverLegalDeadline() {
+        let status = TaxFilingStatus(taxYear: 2024, deadlineOverride: calendarDate(2025, 9, 30))
+        XCTAssertEqual(status.effectiveDeadline(usesTaxAdvisor: false), calendarDate(2025, 9, 30))
+        XCTAssertEqual(status.effectiveDeadline(usesTaxAdvisor: true), calendarDate(2025, 9, 30))
+    }
+
+    func testIsSubmittedReflectsSubmittedAt() {
+        let status = TaxFilingStatus(taxYear: 2024)
+        XCTAssertFalse(status.isSubmitted)
+        status.submittedAt = .now
+        XCTAssertTrue(status.isSubmitted)
+    }
+
+    // MARK: - Kautionsrückzahlung
+
+    func testDaysSinceEndWithUnreturnedDepositIsNilWhileTenancyStillRuns() {
+        let tenancy = Tenancy(startDate: calendarDate(2024, 1, 1), deposit: 1000)
+        XCTAssertNil(tenancy.daysSinceEndWithUnreturnedDeposit(today: calendarDate(2025, 1, 1)))
+    }
+
+    func testDaysSinceEndWithUnreturnedDepositIsNilWithoutDeposit() {
+        let tenancy = Tenancy(startDate: calendarDate(2024, 1, 1), endDate: calendarDate(2024, 6, 1), deposit: 0)
+        XCTAssertNil(tenancy.daysSinceEndWithUnreturnedDeposit(today: calendarDate(2025, 1, 1)))
+    }
+
+    func testDaysSinceEndWithUnreturnedDepositIsNilAfterReturn() {
+        let tenancy = Tenancy(startDate: calendarDate(2024, 1, 1), endDate: calendarDate(2024, 6, 1), deposit: 1000)
+        tenancy.depositReturnedAt = calendarDate(2024, 7, 1)
+        XCTAssertNil(tenancy.daysSinceEndWithUnreturnedDeposit(today: calendarDate(2025, 1, 1)))
+    }
+
+    func testDaysSinceEndWithUnreturnedDepositCountsFromEndDate() {
+        let tenancy = Tenancy(startDate: calendarDate(2024, 1, 1), endDate: calendarDate(2024, 6, 1), deposit: 1000)
+        XCTAssertEqual(tenancy.daysSinceEndWithUnreturnedDeposit(today: calendarDate(2024, 9, 1)), 92)
+    }
+
+    // MARK: - Modernisierungsmieterhöhung (§ 555c/§ 559b BGB)
+
+    func testModernizationEarliestStartDateIsThreeMonthsAfterAnnouncement() {
+        let announced = calendarDate(2025, 1, 15)
+        XCTAssertEqual(RentIncreaseAdvisor.modernizationEarliestStartDate(announcedAt: announced), calendarDate(2025, 4, 15))
+    }
+
+    func testModernizationIncreaseEffectiveDateIsStartOfThirdMonthAfterReceipt() {
+        // Zugang im März → wirksam ab Beginn des dritten Monats danach, also 1. Juni.
+        let declaredAt = calendarDate(2025, 3, 10)
+        XCTAssertEqual(RentIncreaseAdvisor.modernizationIncreaseEffectiveDate(declaredAt: declaredAt), calendarDate(2025, 6, 1))
     }
 }

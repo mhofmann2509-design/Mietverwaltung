@@ -55,7 +55,7 @@ struct PropertyPurchaseContractScanReviewView: View {
                 } header: {
                     Text("Wirtschaftlicher Übergang")
                 } footer: {
-                    Text("Maßgeblich für den Beginn des Dreijahreszeitraums der 15-%-Grenze – kann vom Beurkundungsdatum abweichen. Die bestehende Gebäude-AfA bleibt unverändert am Kaufdatum.")
+                    Text("Maßgeblich sowohl für den Beginn des Dreijahreszeitraums der 15-%-Grenze als auch für den Beginn der Gebäude-AfA – kann vom Beurkundungsdatum abweichen. Ohne Angabe gilt weiterhin das Kaufdatum.")
                 }
 
                 Section {
@@ -85,10 +85,10 @@ struct PropertyPurchaseContractScanReviewView: View {
     }
 
     private func apply() {
-        if let price = Double(purchasePriceText.replacingOccurrences(of: ",", with: ".")), price > 0 {
+        if let price = purchasePriceText.parsedDecimal, price > 0 {
             property.purchasePrice = price
         }
-        if let land = Double(landValueText.replacingOccurrences(of: ",", with: ".")), land > 0 {
+        if let land = landValueText.parsedDecimal, land > 0 {
             property.landValue = land
         }
         property.purchaseDate = hasPurchaseDate ? purchaseDate : property.purchaseDate

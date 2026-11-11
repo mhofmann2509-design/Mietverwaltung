@@ -129,6 +129,8 @@ struct ReceiptScanReviewView: View {
                         }
                     }
                 }
+
+                ValidationMessagesSection(messages: validationMessages)
             }
             .navigationTitle("Beleg prüfen")
             .toolbar {
@@ -137,7 +139,7 @@ struct ReceiptScanReviewView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Übernehmen") { save() }
-                        .disabled(amountText.isEmpty)
+                        .disabled(!validationMessages.isEmpty)
                 }
             }
             .onAppear(perform: loadInitialValues)
@@ -155,8 +157,15 @@ struct ReceiptScanReviewView: View {
         usefulLifeYears = assetCategory.defaultUsefulLifeYears
     }
 
+    private var validationMessages: [String] {
+        [
+            FormValidation.number(amountText, "Betrag", .positive, required: true),
+            kind == .expense && taxTreatment == .maintenanceExpense ? FormValidation.number(vatRateText, "Umsatzsteuersatz", .percent) : nil
+        ].compactMap { $0 }
+    }
+
     private func save() {
-        let amount = Double(amountText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let amount = amountText.parsedDecimal ?? 0
         let document = Document(
             title: documentTitle(amount: amount),
             fileName: documentFileName(amount: amount),
@@ -167,7 +176,7 @@ struct ReceiptScanReviewView: View {
 
         switch kind {
         case .expense:
-            let vatRate = taxTreatment == .maintenanceExpense ? Double(vatRateText.replacingOccurrences(of: ",", with: ".")) : nil
+            let vatRate = taxTreatment == .maintenanceExpense ? vatRateText.parsedDecimal : nil
             let expense = Expense(date: date, amount: amount, category: category, title: title, taxTreatment: taxTreatment)
             expense.property = selectedProperty
             expense.unit = selectedUnit

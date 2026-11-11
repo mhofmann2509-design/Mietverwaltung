@@ -26,7 +26,7 @@ struct RemainingUsefulLifeAppraisalEditView: View {
     private var isNew: Bool { appraisal == nil }
 
     private var totalUsefulLifeYears: Double {
-        Double(totalUsefulLifeYearsText.replacingOccurrences(of: ",", with: ".")) ?? 80
+        totalUsefulLifeYearsText.parsedDecimal ?? 80
     }
 
     /// Erzeugt aus den aktuellen Formularwerten ein (nicht gespeichertes) Gutachten, um RND und
@@ -114,6 +114,8 @@ struct RemainingUsefulLifeAppraisalEditView: View {
                     TextField("Notizen", text: $notes, axis: .vertical)
                         .lineLimit(3...6)
                 }
+
+                ValidationMessagesSection(messages: validationMessages)
             }
             .navigationTitle(isNew ? "Restnutzungsdauergutachten" : "Gutachten bearbeiten")
             .toolbar {
@@ -122,6 +124,7 @@ struct RemainingUsefulLifeAppraisalEditView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Sichern") { save() }
+                        .disabled(!validationMessages.isEmpty)
                 }
             }
             .onAppear(perform: loadExistingValues)
@@ -159,6 +162,13 @@ struct RemainingUsefulLifeAppraisalEditView: View {
         } else if let constructionYear = property.constructionYear {
             constructionYearText = String(constructionYear)
         }
+    }
+
+    private var validationMessages: [String] {
+        [
+            FormValidation.integer(constructionYearText, "Baujahr", 1500...FormValidation.currentYear, required: true),
+            FormValidation.number(totalUsefulLifeYearsText, "Gesamtnutzungsdauer", .range(1...200), required: true)
+        ].compactMap { $0 }
     }
 
     private func save() {

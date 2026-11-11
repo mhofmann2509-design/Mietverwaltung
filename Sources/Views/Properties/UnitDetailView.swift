@@ -147,7 +147,7 @@ struct UnitDetailView: View {
     /// teilen sich dieselbe, einmalig berechnete Liste.
     private func deleteAssets(_ assets: [DepreciableAsset], at offsets: IndexSet) {
         for index in offsets {
-            modelContext.delete(assets[index])
+            DepreciableAsset.delete(assets[index], context: modelContext)
         }
     }
 

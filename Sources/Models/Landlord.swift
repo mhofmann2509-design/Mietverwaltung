@@ -21,7 +21,11 @@ final class Landlord {
     /// Grundlage für die geschätzte Steuerlast aus dem steuerlichen Ergebnis der Immobilien.
     var marginalTaxRatePercent: Double = 42
 
-    init(name: String = "", street: String = "", zipCode: String = "", city: String = "", email: String = "", bankAccountHolder: String = "", iban: String = "", bic: String = "", marginalTaxRatePercent: Double = 42) {
+    /// Steuerliche Vertretung durch einen Steuerberater – bestimmt, welche gesetzliche
+    /// Abgabefrist (§ 149 AO) für die Steuererklärung angezeigt wird.
+    var usesTaxAdvisor: Bool = false
+
+    init(name: String = "", street: String = "", zipCode: String = "", city: String = "", email: String = "", bankAccountHolder: String = "", iban: String = "", bic: String = "", marginalTaxRatePercent: Double = 42, usesTaxAdvisor: Bool = false) {
         self.name = name
         self.street = street
         self.zipCode = zipCode
@@ -31,6 +35,7 @@ final class Landlord {
         self.iban = iban
         self.bic = bic
         self.marginalTaxRatePercent = marginalTaxRatePercent
+        self.usesTaxAdvisor = usesTaxAdvisor
     }
 
     var address: String {

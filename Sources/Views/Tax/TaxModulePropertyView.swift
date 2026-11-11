@@ -33,10 +33,10 @@ struct TaxModulePropertyView: View {
     @State private var selectedTab: TaxDetailTab = .afa
     @State private var pdfPreviewURL: URL?
     @State private var pdfWarnings: [String] = []
+    @State private var busyMessage: String?
     @State private var afaHerleitungExpanded = false
     @State private var ongoingChecklistExpanded = true
     @State private var homeOfficeEntry: HomeOfficeEntry?
-    @State private var includeThresholdInOngoingReport = false
 
     init(property: Property, initialYear: Int? = nil) {
         self.property = property
@@ -96,6 +96,7 @@ struct TaxModulePropertyView: View {
             ensureHomeOfficeEntry()
         }
         .quickLookPreview($pdfPreviewURL)
+        .busyOverlay(busyMessage)
     }
 
     // MARK: - Kopfbereich
@@ -400,19 +401,32 @@ struct TaxModulePropertyView: View {
                 .font(Theme.sectionTitleFont)
             Theme.card {
                 VStack(alignment: .leading, spacing: Theme.rowSpacing) {
+                    if !expensesWithoutDocument.isEmpty {
+                        Button {
+                            selectedTab = .belege
+                        } label: {
+                            Label("\(expensesWithoutDocument.count) Werbungskosten-Position(en) \(String(selectedYear)) ohne Original-Beleg", systemImage: "exclamationmark.triangle")
+                                .font(.caption)
+                        }
+                        .foregroundStyle(Theme.statusWarning)
+                        Divider()
+                    }
                     Button("Erstanlage-PDF erstellen") {
                         generatePDF(kind: .initialSetup)
                     }
-                    if property.thresholdCase != nil {
-                        Toggle("15-%-Grenze hinzufügen", isOn: $includeThresholdInOngoingReport)
-                            .font(.subheadline)
-                        Text("Nimmt das Kapitel zur 15-%-Grenze nur in dieses eine PDF auf, falls gewünscht – nicht automatisch jedes Jahr.")
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
                     Button("Laufender-Betrieb-PDF erstellen (\(String(selectedYear)))") {
-                        generatePDF(kind: .ongoing(taxYear: selectedYear), includeThresholdCheck: includeThresholdInOngoingReport)
+                        generatePDF(kind: .ongoing(taxYear: selectedYear))
                     }
+                    Divider()
+                    Button("15-%-Grenze-PDF erstellen") {
+                        generateStandaloneThresholdReport()
+                    }
+                    .disabled(property.thresholdCase == nil)
+                    Text(property.thresholdCase == nil
+                         ? "Noch keine 15-%-Grenze-Prüfung angelegt – erst unter „15-%-Grenze“ anlegen."
+                         : "Eigenständiges Dokument, getrennt von den beiden Berichten oben – kann in jedem der ersten drei Jahre nach Erwerb erneut gesondert ans Finanzamt nachgereicht werden.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                     if !pdfWarnings.isEmpty {
                         VStack(alignment: .leading, spacing: 4) {
                             Text("Hinweise zum zuletzt erstellten PDF:")
@@ -454,22 +468,32 @@ struct TaxModulePropertyView: View {
         thresholdCase.ensureAssessments(context: context)
     }
 
-    private func generatePDF(kind: TaxReportKind, includeThresholdCheck: Bool = false) {
-        let (url, warnings) = TaxReportPDFBuilder.build(property: property, kind: kind, includeThresholdCheck: includeThresholdCheck)
-        pdfPreviewURL = url
-        pdfWarnings = warnings
+    private func generatePDF(kind: TaxReportKind) {
+        runReport { TaxReportPDFBuilder.build(property: property, kind: kind) }
     }
 
     private func generateStandaloneThresholdReport() {
-        let (url, warnings) = TaxReportPDFBuilder.buildStandaloneThresholdReport(property: property)
-        pdfPreviewURL = url
-        pdfWarnings = warnings
+        runReport { TaxReportPDFBuilder.buildStandaloneThresholdReport(property: property) }
     }
 
     private func generateStandaloneAfaReport() {
-        let (url, warnings) = TaxReportPDFBuilder.buildStandaloneAfaReport(property: property, taxYear: selectedYear)
-        pdfPreviewURL = url
-        pdfWarnings = warnings
+        let year = selectedYear
+        runReport { TaxReportPDFBuilder.buildStandaloneAfaReport(property: property, taxYear: year) }
+    }
+
+    /// Das PDF-Rendering (`ImageRenderer`) muss auf dem Hauptthread laufen – die kurze Pause
+    /// davor lässt die Fortschrittsanzeige erscheinen, statt dass die Oberfläche ohne Rückmeldung
+    /// stehen bleibt.
+    private func runReport(_ build: @escaping @MainActor () -> (URL?, [String])) {
+        guard busyMessage == nil else { return }
+        busyMessage = "PDF wird erstellt …"
+        Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(50))
+            let (url, warnings) = build()
+            busyMessage = nil
+            pdfPreviewURL = url
+            pdfWarnings = warnings
+        }
     }
 
     /// Stellt sicher, dass für die aktuelle Immobilie und das ausgewählte Steuerjahr ein

@@ -22,6 +22,13 @@ enum DemoSeeder {
             purchaseDate: calendar.date(byAdding: .year, value: -2, to: .now),
             landValue: 70_000, constructionYear: 1998
         )
+        // Aufschlüsselung der Kaufnebenkosten (28.000 € Gesamtsumme, unverändert): Grunderwerbsteuer
+        // zu 6 % (Berlin) + marktübliche Notar-/Grundbuch-/Maklerkosten, als realistisches
+        // Demonstrationsbeispiel für die vollständige Einzelaufschlüsselung im Steuerreport.
+        property.purchaseTransferTaxCosts = 18_600
+        property.purchaseNotaryCosts = 4_650
+        property.purchaseLandRegistryCosts = 1_550
+        property.purchaseBrokerCosts = 3_200
         property.loanAmount = 220_000
         property.interestRatePercent = 3.5
         property.initialRepaymentRatePercent = 2.0

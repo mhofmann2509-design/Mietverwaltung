@@ -6,6 +6,7 @@ struct PropertyListView: View {
     @Query(sort: \Property.name) private var properties: [Property]
     @State private var showingAddSheet = false
     @State private var searchText = ""
+    @State private var pendingDeletion: [Property] = []
 
     private var filteredProperties: [Property] {
         guard !searchText.isEmpty else { return properties }
@@ -118,6 +119,19 @@ struct PropertyListView: View {
                 }
             }
         }
+        .confirmationDialog(
+            pendingDeletion.count == 1 ? "„\(pendingDeletion[0].name)“ löschen?" : "\(pendingDeletion.count) Immobilien löschen?",
+            isPresented: Binding(get: { !pendingDeletion.isEmpty }, set: { if !$0 { pendingDeletion = [] } }),
+            titleVisibility: .visible
+        ) {
+            Button("Endgültig löschen", role: .destructive) {
+                pendingDeletion.forEach { modelContext.delete($0) }
+                pendingDeletion = []
+            }
+            Button("Abbrechen", role: .cancel) { pendingDeletion = [] }
+        } message: {
+            Text(deletionWarning)
+        }
         .sheet(isPresented: $showingAddSheet) {
             PropertyEditView(property: nil)
         }
@@ -135,10 +149,15 @@ struct PropertyListView: View {
     }
 
     private func deleteProperties(at offsets: IndexSet) {
-        for index in offsets {
-            guard let originalIndex = properties.firstIndex(where: { $0.id == filteredProperties[index].id }) else { continue }
-            modelContext.delete(properties[originalIndex])
-        }
+        pendingDeletion = offsets.map { filteredProperties[$0] }
+    }
+
+    private var deletionWarning: String {
+        let units = pendingDeletion.flatMap { $0.units ?? [] }
+        let tenancyCount = units.reduce(0) { $0 + ($1.tenancies?.count ?? 0) }
+        let expenseCount = pendingDeletion.reduce(0) { $0 + ($1.expenses?.count ?? 0) }
+        let documentCount = pendingDeletion.reduce(0) { $0 + ($1.documents?.count ?? 0) }
+        return "Dabei werden auch \(units.count) Einheit(en), \(tenancyCount) Mietverhältnis(se) samt Zahlungen, \(expenseCount) Ausgabe(n), \(documentCount) Dokument(e) sowie alle Abrechnungen, Wirtschaftsgüter und Steuerdaten dieser Immobilie gelöscht. Dieser Schritt kann nicht rückgängig gemacht werden."
     }
 }
 

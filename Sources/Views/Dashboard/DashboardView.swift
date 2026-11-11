@@ -102,6 +102,8 @@ struct DashboardView: View {
     @Query private var tenancies: [Tenancy]
     @Query(sort: \Expense.date, order: .reverse) private var expenses: [Expense]
     @Query private var landlords: [Landlord]
+    @Query private var taxFilingStatuses: [TaxFilingStatus]
+    @Query private var ownersMeetings: [OwnersMeetingEvent]
 
     /// `nil` = alle Objekte. Scoped in der Kopfzeile, filtert Kennzahlen, Mietverhältnis-Tabelle
     /// und Aufgaben-Liste gemeinsam.
@@ -202,7 +204,26 @@ struct DashboardView: View {
     // MARK: - Aufgaben
 
     private var reminders: [ReminderItem] {
-        RemindersEngine.reminders(properties: scopedProperties, tenancies: scopedTenancies)
+        RemindersEngine.reminders(
+            properties: scopedProperties,
+            tenancies: scopedTenancies,
+            landlord: landlords.first,
+            taxFilingStatuses: taxFilingStatuses,
+            ownersMeetings: ownersMeetings
+        )
+    }
+
+    /// Ungefiltert (unabhängig von der Objekt-Auswahl in der Kopfzeile) – Grundlage für den
+    /// Push-Benachrichtigungs-Abgleich, damit das Einschränken auf ein einzelnes Objekt im
+    /// Dashboard nicht versehentlich die geplanten Benachrichtigungen der übrigen Objekte löscht.
+    private var allReminders: [ReminderItem] {
+        RemindersEngine.reminders(
+            properties: properties,
+            tenancies: tenancies,
+            landlord: landlords.first,
+            taxFilingStatuses: taxFilingStatuses,
+            ownersMeetings: ownersMeetings
+        )
     }
 
     // MARK: - Weitere Kennzahlen (eingeklappt)
@@ -246,66 +267,26 @@ struct DashboardView: View {
             .reduce(0) { $0 + $1.amount }
     }
 
-    /// Bruttomietrendite für das gewählte Steuerjahr (Jahreskaltmiete ÷ Kaufpreis), portfolioweit
-    /// gewichtet aufsummiert – anders als `portfolioGrossYieldPercent` oben (immer „jetzt") hier
-    /// konsistent mit dem Steuerjahr-Picker der Rendite-/Steuer-/Cashflow-Blöcke.
-    private var portfolioGrossYieldForSelectedYear: Double? {
-        let relevant = scopedProperties.filter { $0.purchasePrice > 0 }
-        guard !relevant.isEmpty else { return nil }
-        let totalPrice = relevant.reduce(0.0) { $0 + $1.purchasePrice }
-        guard totalPrice > 0 else { return nil }
-        let totalRent = relevant.reduce(0.0) { $0 + $1.annualColdRent(forYear: selectedTaxYear) }
-        return (totalRent / totalPrice) * 100
+    private var metrics: PortfolioMetrics {
+        PortfolioMetrics(properties: scopedProperties, year: selectedTaxYear, marginalTaxRatePercent: landlords.first?.marginalTaxRatePercent)
     }
 
-    /// Nettomietrendite für das gewählte Steuerjahr: (Jahreskaltmiete − Jahresausgaben) ÷
-    /// Investitionssumme inkl. Kaufnebenkosten, portfolioweit gewichtet aufsummiert.
-    private var portfolioNetYieldForSelectedYear: Double? {
-        let relevant = scopedProperties.filter { $0.totalInvestment > 0 }
-        guard !relevant.isEmpty else { return nil }
-        let totalInvestment = relevant.reduce(0.0) { $0 + $1.totalInvestment }
-        guard totalInvestment > 0 else { return nil }
-        let totalNetIncome = relevant.reduce(0.0) { $0 + ($1.annualColdRent(forYear: selectedTaxYear) - $1.totalExpenses(forYear: selectedTaxYear)) }
-        return (totalNetIncome / totalInvestment) * 100
-    }
+    private var portfolioGrossYieldForSelectedYear: Double? { metrics.grossYieldPercent }
+    private var portfolioNetYieldForSelectedYear: Double? { metrics.netYieldPercent }
 
     private var availableTaxYears: [Int] {
         let years = Set(scopedProperties.flatMap { $0.availableTaxYears })
         return years.isEmpty ? [Calendar.current.component(.year, from: .now)] : years.sorted(by: >)
     }
 
-    private var totalRentForSelectedYear: Double {
-        scopedProperties.reduce(0) { $0 + $1.annualColdRent(forYear: selectedTaxYear) }
-    }
-
-    private var totalWerbungskostenForSelectedYear: Double {
-        scopedProperties.reduce(0) { $0 + $1.werbungskosten(forYear: selectedTaxYear) }
-    }
-
-    private var totalAfaForSelectedYear: Double {
-        scopedProperties.reduce(0) { $0 + $1.totalAfa(forYear: selectedTaxYear) }
-    }
-
-    private var totalTaxableResultForSelectedYear: Double {
-        scopedProperties.reduce(0) { $0 + $1.estimatedTaxableResult(forYear: selectedTaxYear) }
-    }
-
-    private var totalOperativeCashFlowForSelectedYear: Double {
-        scopedProperties.reduce(0) { $0 + $1.operativeCashFlow(forYear: selectedTaxYear) }
-    }
-
-    private var totalFreeCashFlowForSelectedYear: Double {
-        scopedProperties.reduce(0) { $0 + $1.freeCashFlow(forYear: selectedTaxYear) }
-    }
-
-    private var estimatedTaxBurdenForSelectedYear: Double {
-        guard let landlord = landlords.first else { return 0 }
-        return max(0, totalTaxableResultForSelectedYear) * landlord.marginalTaxRatePercent / 100
-    }
-
-    private var cashFlowAfterTaxForSelectedYear: Double {
-        totalFreeCashFlowForSelectedYear - estimatedTaxBurdenForSelectedYear
-    }
+    private var totalRentForSelectedYear: Double { metrics.totalRent }
+    private var totalWerbungskostenForSelectedYear: Double { metrics.totalWerbungskosten }
+    private var totalAfaForSelectedYear: Double { metrics.totalAfa }
+    private var totalTaxableResultForSelectedYear: Double { metrics.taxableResult }
+    private var totalOperativeCashFlowForSelectedYear: Double { metrics.operativeCashFlow }
+    private var totalFreeCashFlowForSelectedYear: Double { metrics.freeCashFlow }
+    private var estimatedTaxBurdenForSelectedYear: Double { metrics.estimatedTaxBurden }
+    private var cashFlowAfterTaxForSelectedYear: Double { metrics.cashFlowAfterTax }
 
     var body: some View {
         ScrollView {
@@ -361,6 +342,10 @@ struct DashboardView: View {
             }
         }
         #endif
+        .onAppear {
+            NotificationScheduler.requestAuthorizationIfNeeded()
+            NotificationScheduler.sync(allReminders)
+        }
     }
 
     // MARK: - Kopfzeile

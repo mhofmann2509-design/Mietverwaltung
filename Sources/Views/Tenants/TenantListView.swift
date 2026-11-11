@@ -6,6 +6,7 @@ struct TenantListView: View {
     @Query(sort: \Tenant.lastName) private var tenants: [Tenant]
     @State private var showingAddSheet = false
     @State private var searchText = ""
+    @State private var pendingDeletion: [Tenant] = []
 
     private var filteredTenants: [Tenant] {
         guard !searchText.isEmpty else { return tenants }
@@ -66,6 +67,19 @@ struct TenantListView: View {
         .sheet(isPresented: $showingAddSheet) {
             TenantEditView(tenant: nil)
         }
+        .confirmationDialog(
+            pendingDeletion.count == 1 ? "Mieter löschen?" : "\(pendingDeletion.count) Mieter löschen?",
+            isPresented: Binding(get: { !pendingDeletion.isEmpty }, set: { if !$0 { pendingDeletion = [] } }),
+            titleVisibility: .visible
+        ) {
+            Button("Endgültig löschen", role: .destructive) {
+                pendingDeletion.forEach { modelContext.delete($0) }
+                pendingDeletion = []
+            }
+            Button("Abbrechen", role: .cancel) { pendingDeletion = [] }
+        } message: {
+            Text(deletionWarning)
+        }
         .overlay {
             if tenants.isEmpty {
                 ContentUnavailableView(
@@ -80,10 +94,14 @@ struct TenantListView: View {
     }
 
     private func deleteTenants(at offsets: IndexSet) {
-        for index in offsets {
-            guard let originalIndex = tenants.firstIndex(where: { $0.id == filteredTenants[index].id }) else { continue }
-            modelContext.delete(tenants[originalIndex])
-        }
+        pendingDeletion = offsets.map { filteredTenants[$0] }
+    }
+
+    private var deletionWarning: String {
+        let tenancies = pendingDeletion.flatMap { $0.tenancies ?? [] }
+        guard !tenancies.isEmpty else { return "Dieser Schritt kann nicht rückgängig gemacht werden." }
+        let places = tenancies.map { "• \($0.unit?.property?.name ?? "–") · \($0.unit?.name ?? "–") (ab \($0.startDate.asShortDate))" }
+        return "Mit dem Mieter werden auch diese Mietverhältnisse samt Zahlungen, Mietstaffeln und Dokumenten gelöscht:\n" + places.joined(separator: "\n") + "\n\nDieser Schritt kann nicht rückgängig gemacht werden."
     }
 }
 

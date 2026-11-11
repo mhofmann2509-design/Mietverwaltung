@@ -21,6 +21,7 @@ struct DepreciableAssetEditView: View {
     @State private var isUsed = false
     @State private var estimatedValueText = ""
     @State private var isCoRented = false
+    @State private var showingDeleteConfirmation = false
 
     init(property: Property? = nil, unit: Unit? = nil, asset: DepreciableAsset?) {
         self.initialProperty = property
@@ -34,9 +35,9 @@ struct DepreciableAssetEditView: View {
     /// erworbenen Wirtschaftsgütern der angesetzte Zeitwert, sonst die Anschaffungskosten.
     private var effectiveBasis: Double {
         if isUsed {
-            return Double(estimatedValueText.replacingOccurrences(of: ",", with: ".")) ?? 0
+            return estimatedValueText.parsedDecimal ?? 0
         }
-        return Double(costText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        return costText.parsedDecimal ?? 0
     }
 
     private var isGWG: Bool {
@@ -82,7 +83,7 @@ struct DepreciableAssetEditView: View {
                     } else if category == .improvement {
                         if let rate = selectedProperty?.afaRatePercent {
                             LabeledContent("AfA-Satz lt. Gebäude", value: rate.asPercent)
-                            if let cost = Double(costText.replacingOccurrences(of: ",", with: ".")), cost > 0 {
+                            if let cost = costText.parsedDecimal, cost > 0 {
                                 LabeledContent("Jährliche Abschreibung", value: (cost * rate / 100).asCurrency)
                             }
                         } else {
@@ -145,11 +146,21 @@ struct DepreciableAssetEditView: View {
                 if !isNew {
                     Section {
                         Button("Wirtschaftsgut löschen", role: .destructive) {
-                            if let asset { modelContext.delete(asset) }
-                            dismiss()
+                            showingDeleteConfirmation = true
+                        }
+                        .confirmationDialog("Wirtschaftsgut löschen?", isPresented: $showingDeleteConfirmation, titleVisibility: .visible) {
+                            Button("Endgültig löschen", role: .destructive) {
+                                if let asset { DepreciableAsset.delete(asset, context: modelContext) }
+                                dismiss()
+                            }
+                            Button("Abbrechen", role: .cancel) {}
+                        } message: {
+                            Text(asset?.deletionWarning ?? "")
                         }
                     }
                 }
+
+                ValidationMessagesSection(messages: validationMessages)
             }
             .navigationTitle(isNew ? "Wirtschaftsgut erfassen" : "Wirtschaftsgut bearbeiten")
             .toolbar {
@@ -158,7 +169,7 @@ struct DepreciableAssetEditView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Sichern") { save() }
-                        .disabled(name.isEmpty || selectedProperty == nil || (isUsed ? estimatedValueText.isEmpty : costText.isEmpty))
+                        .disabled(name.isEmpty || selectedProperty == nil || !validationMessages.isEmpty)
                 }
             }
             .onAppear(perform: loadExistingValues)
@@ -183,9 +194,17 @@ struct DepreciableAssetEditView: View {
         isCoRented = asset.isCoRented
     }
 
+    private var validationMessages: [String] {
+        (isUsed
+            ? [FormValidation.number(estimatedValueText, "Zeitwert bei Anschaffung", .positive, required: true),
+               FormValidation.number(costText, "Ursprünglicher Kaufpreis")]
+            : [FormValidation.number(costText, "Anschaffungs-/Herstellungskosten", .positive, required: true)]
+        ).compactMap { $0 }
+    }
+
     private func save() {
-        let cost = Double(costText.replacingOccurrences(of: ",", with: ".")) ?? 0
-        let estimatedValue = isUsed ? (Double(estimatedValueText.replacingOccurrences(of: ",", with: ".")) ?? 0) : 0
+        let cost = costText.parsedDecimal ?? 0
+        let estimatedValue = isUsed ? (estimatedValueText.parsedDecimal ?? 0) : 0
 
         if let asset {
             asset.name = name

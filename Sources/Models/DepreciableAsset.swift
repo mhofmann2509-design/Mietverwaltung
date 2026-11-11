@@ -63,6 +63,26 @@ final class DepreciableAsset {
     @Relationship(deleteRule: .cascade, inverse: \Document.depreciableAsset)
     var documents: [Document]? = []
 
+    /// Aktivierungsentscheidung, aus der dieses Wirtschaftsgut entstanden ist (siehe
+    /// `CapitalizationDecision.revert`, bevor es gelöscht wird).
+    @Relationship(deleteRule: .nullify, inverse: \CapitalizationDecision.resultingAsset)
+    var capitalizationDecisions: [CapitalizationDecision]? = []
+
+    /// Löscht das Wirtschaftsgut und nimmt eine zugehörige Aktivierungsentscheidung zurück.
+    static func delete(_ asset: DepreciableAsset, context: ModelContext) {
+        for decision in asset.capitalizationDecisions ?? [] {
+            CapitalizationDecision.revert(decision, context: context)
+        }
+        context.delete(asset)
+    }
+
+    /// Hinweistext für die Lösch-Bestätigung.
+    var deletionWarning: String {
+        let expenseCount = (capitalizationDecisions ?? []).reduce(0) { $0 + ($1.sourceExpenses?.count ?? 0) }
+        guard expenseCount > 0 else { return "Dieser Schritt kann nicht rückgängig gemacht werden." }
+        return "Dieses Wirtschaftsgut stammt aus der Aktivierung von \(expenseCount) Ausgabe(n). Beim Löschen wird die Aktivierung zurückgenommen – die Ausgaben werden wieder als Erhaltungsaufwand geführt."
+    }
+
     init(name: String = "", category: AssetCategory = .other, cost: Double = 0, usefulLifeYears: Int = 10, placedInServiceDate: Date = .now, notes: String = "", isUsed: Bool = false, estimatedValueAtAcquisition: Double = 0, isCoRented: Bool = false) {
         self.name = name
         self.categoryRaw = category.rawValue

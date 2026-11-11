@@ -33,76 +33,19 @@ struct UtilityStatementDetailView: View {
         "\(statement.periodStart.asShortDate) – \(statement.periodEnd.asShortDate)"
     }
 
-    /// Gewicht einer Einheit/eines Mietverhältnisses nach dem gewählten Umlageschlüssel,
-    /// bezogen auf die gesamte Immobilie (unabhängig von der Belegung – Leerstand bleibt beim Vermieter).
-    private func weight(forUnit unit: Unit, property: Property) -> Double {
-        switch statement.allocationMethod {
-        case .livingSpace:
-            let totalSize = property.totalSizeSquareMeters
-            return totalSize > 0 ? unit.sizeSquareMeters / totalSize : 0
-        case .unitCount:
-            let totalUnits = (property.units ?? []).count
-            return totalUnits > 0 ? 1.0 / Double(totalUnits) : 0
-        case .personCount:
-            let totalPersons = (property.units ?? []).reduce(0) { sum, unit in
-                sum + (unit.tenancies ?? []).filter { $0.isRunning(on: statement.periodEnd) }.reduce(0) { $0 + $1.occupantCount }
-            }
-            let unitPersons = (unit.tenancies ?? []).filter { $0.isRunning(on: statement.periodEnd) }.reduce(0) { $0 + $1.occupantCount }
-            return totalPersons > 0 ? Double(unitPersons) / Double(totalPersons) : 0
-        case .coOwnershipShare:
-            let totalShare = property.totalCoOwnershipShare
-            return totalShare > 0 ? unit.coOwnershipShare / totalShare : 0
-        }
-    }
-
-    /// Konkreter Anteil dieser Einheit am gewählten Umlageschlüssel als Verhältnis
-    /// (Einheit/Gesamt), z.B. „144/1.000“ bei MEA oder „68/123 m²“ bei Wohnfläche.
-    private func keyDetail(forUnit unit: Unit, property: Property, weight: Double) -> String {
-        switch statement.allocationMethod {
-        case .livingSpace:
-            return "\(unit.sizeSquareMeters.formatted())/\(property.totalSizeSquareMeters.formatted()) m²"
-        case .unitCount:
-            let totalUnits = (property.units ?? []).count
-            return "1/\(totalUnits)"
-        case .personCount:
-            let totalPersons = (property.units ?? []).reduce(0) { sum, u in
-                sum + (u.tenancies ?? []).filter { $0.isRunning(on: statement.periodEnd) }.reduce(0) { $0 + $1.occupantCount }
-            }
-            let unitPersons = (unit.tenancies ?? []).filter { $0.isRunning(on: statement.periodEnd) }.reduce(0) { $0 + $1.occupantCount }
-            return "\(unitPersons)/\(totalPersons)"
-        case .coOwnershipShare:
-            return "\(unit.coOwnershipShare.formatted())/\(property.totalCoOwnershipShare.formatted())"
-        }
-    }
-
     private var allocationRows: [UtilityAllocationRow] {
-        guard let property = statement.property else { return [] }
-        let calendar = Calendar.current
-        let totalDays = (calendar.dateComponents([.day], from: statement.periodStart, to: statement.periodEnd).day ?? 0) + 1
-        guard totalDays > 0 else { return [] }
-
-        var rows: [UtilityAllocationRow] = []
-        for unit in property.units ?? [] {
-            let unitWeight = weight(forUnit: unit, property: property)
-            guard unitWeight > 0 else { continue }
-            for tenancy in unit.tenancies ?? [] {
-                let days = tenancy.activeDays(from: statement.periodStart, to: statement.periodEnd)
-                guard days > 0 else { continue }
-                let timeShare = Double(days) / Double(totalDays)
-                let allocated = (statement.totalApportionableCosts * unitWeight * timeShare).roundedToCents
-                let paid = tenancy.utilityAdvancesPaid(from: statement.periodStart, to: statement.periodEnd).roundedToCents
-                rows.append(UtilityAllocationRow(
-                    tenancy: tenancy,
-                    unitName: unit.name.isEmpty ? "Einheit" : unit.name,
-                    tenantName: tenancy.tenant?.fullName ?? "Unbekannter Mieter",
-                    tenantSalutation: tenancy.tenant?.formalSalutation ?? "Sehr geehrte(r) Mieter/in,",
-                    allocatedCost: allocated,
-                    advancesPaid: paid,
-                    keyDetail: keyDetail(forUnit: unit, property: property, weight: unitWeight)
-                ))
-            }
+        UtilityAllocationCalculator.shares(for: statement).map { share in
+            UtilityAllocationRow(
+                tenancy: share.tenancy,
+                unitName: share.unit.name.isEmpty ? "Einheit" : share.unit.name,
+                tenantName: share.tenancy.tenant?.fullName ?? "Unbekannter Mieter",
+                tenantSalutation: share.tenancy.tenant?.formalSalutation ?? "Sehr geehrte(r) Mieter/in,",
+                allocatedCost: share.allocatedCost,
+                advancesPaid: share.advancesPaid,
+                keyDetail: share.keyDetail
+            )
         }
-        return rows.sorted { $0.unitName < $1.unitName }
+        .sorted { $0.unitName < $1.unitName }
     }
 
     // MARK: - Verschickt-Markierung je Mietverhältnis
@@ -193,13 +136,7 @@ struct UtilityStatementDetailView: View {
         )
 
         guard let data = XLSXExporter.data(sheets: [costSheet, tenantSheet]) else { return nil }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Nebenkostenabrechnung \(statement.year) – Übersicht.xlsx")
-        do {
-            try data.write(to: url, options: .atomic)
-            return url
-        } catch {
-            return nil
-        }
+        return try? ExportFileStore.write(data, fileName: "Nebenkostenabrechnung \(statement.year) – Übersicht.xlsx")
     }
 
     private func saveXLSXAsDocument(title: String, url: URL) {
@@ -235,13 +172,7 @@ struct UtilityStatementDetailView: View {
             generatedAt: .now
         )
         guard let data = PDFExporter.renderPDF(size: GesamtuebersichtReportDocument.pageSize, content: { document }) else { return nil }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Nebenkostenabrechnung \(statement.year) – Gesamtübersicht.pdf")
-        do {
-            try data.write(to: url, options: .atomic)
-            return url
-        } catch {
-            return nil
-        }
+        return try? ExportFileStore.write(data, fileName: "Nebenkostenabrechnung \(statement.year) – Gesamtübersicht.pdf")
     }
 
     private func saveOverviewPDFAsDocument(title: String, url: URL) {
@@ -295,13 +226,7 @@ struct UtilityStatementDetailView: View {
     private func pdfTemporaryURL(for row: UtilityAllocationRow) -> URL? {
         guard let data = pdfData(for: row) else { return nil }
         let safeName = "Nebenkostenabrechnung \(statement.year) – \(row.tenantName).pdf"
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(safeName)
-        do {
-            try data.write(to: url, options: .atomic)
-            return url
-        } catch {
-            return nil
-        }
+        return try? ExportFileStore.write(data, fileName: safeName)
     }
 
     private func savePDFAsDocument(title: String, data: Data) {
@@ -395,9 +320,7 @@ struct UtilityStatementDetailView: View {
                                     Button("Nebenkostenabrechnung erstellen") {
                                         pdfPreviewURL = pdfTemporaryURL(for: row)
                                     }
-                                    if let url = pdfTemporaryURL(for: row) {
-                                        ShareLink("Als PDF teilen", item: url)
-                                    }
+                                    ExportShareLink("Als PDF teilen", pdf: { pdfTemporaryURL(for: row) })
                                     Button("Als PDF ablegen") {
                                         if let data = pdfData(for: row) {
                                             savePDFAsDocument(title: "Nebenkostenabrechnung \(statement.year) – \(row.tenantName)", data: data)
@@ -452,26 +375,26 @@ struct UtilityStatementDetailView: View {
                     } label: {
                         Label("Gesamtübersicht als PDF anzeigen", systemImage: "doc.text.magnifyingglass")
                     }
-                    if let url = overviewPDFURL() {
-                        ShareLink("Gesamtübersicht als PDF teilen", item: url)
-                        Button {
+                    ExportShareLink("Gesamtübersicht als PDF teilen", pdf: { overviewPDFURL() })
+                    Button {
+                        if let url = overviewPDFURL() {
                             saveOverviewPDFAsDocument(title: "Nebenkostenabrechnung \(statement.year) – Gesamtübersicht", url: url)
-                        } label: {
-                            Label("Gesamtübersicht als PDF ablegen", systemImage: "tray.and.arrow.down")
                         }
+                    } label: {
+                        Label("Gesamtübersicht als PDF ablegen", systemImage: "tray.and.arrow.down")
                     }
                     Button {
                         pdfPreviewURL = overviewXLSXURL()
                     } label: {
                         Label("Gesamtübersicht als Excel-Tabelle anzeigen", systemImage: "tablecells")
                     }
-                    if let url = overviewXLSXURL() {
-                        ShareLink("Gesamtübersicht als Excel-Tabelle teilen (.xlsx)", item: url)
-                        Button {
+                    ExportShareLink("Gesamtübersicht als Excel-Tabelle teilen (.xlsx)", spreadsheet: { overviewXLSXURL() })
+                    Button {
+                        if let url = overviewXLSXURL() {
                             saveXLSXAsDocument(title: "Nebenkostenabrechnung \(statement.year) – Übersicht", url: url)
-                        } label: {
-                            Label("Gesamtübersicht als Excel-Dokument ablegen", systemImage: "tray.and.arrow.down")
                         }
+                    } label: {
+                        Label("Gesamtübersicht als Excel-Dokument ablegen", systemImage: "tray.and.arrow.down")
                     }
                 } footer: {
                     Text("Die interne Gesamtübersicht nennt – anders als die Schreiben an die Mieter – auch die nicht umlagefähigen Kosten und die komplette Mieterverteilung, zur eigenen Kontrolle.")

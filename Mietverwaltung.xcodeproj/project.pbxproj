@@ -9,12 +9,20 @@
 /* Begin PBXBuildFile section */
 		02E134A7CE371B4B899A3783 /* TaxGlossaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4B84E24783A7FAA45A0AFE9 /* TaxGlossaryView.swift */; };
 		031509C1925752FCC7489C82 /* ReceiptOCR.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74A621B0517D0F1C9490DC21 /* ReceiptOCR.swift */; };
+		048820B601F01950216EDA9E /* FormValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 256957E562A4C33E14757FB7 /* FormValidation.swift */; };
+		05152EA280D7FBD68E5008A7 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 9094A2DD8D827F2F8C1A7696 /* ZIPFoundation */; };
+		0537739F8D05ECB4A160EBAF /* ExportFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCD37386F4D459FE0866F2F3 /* ExportFile.swift */; };
 		059787139A4866D92119D425 /* TravelExpense.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA44B0CD56953B75709D6B93 /* TravelExpense.swift */; };
+		074550A0F993F948A7BBA4FA /* PortfolioMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA48550870CE2D2873CE4518 /* PortfolioMetrics.swift */; };
+		08F107F610983A301C17FEF9 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = D78EF18A4A6B81844E7CA3F1 /* ZIPFoundation */; };
 		09B30EFD7C619864B78367A9 /* HerstellungskostenListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15189EADC2B405B6DC00E191 /* HerstellungskostenListView.swift */; };
 		0B2A7DD94DD6A1CCE9659A90 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8C8388E3E1610A1ABD42677 /* Theme.swift */; };
+		0E03985B039B0DFAAF0D0ED6 /* DecimalInputParserTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51617ACAD12CA0D3811DB09B /* DecimalInputParserTests.swift */; };
+		10F50CBC830C01ACFC77E752 /* FormValidation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 256957E562A4C33E14757FB7 /* FormValidation.swift */; };
+		13F8EC5EB824866F847572CB /* LineItemFileImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9E44C0C3D2915F5B3BB03CA /* LineItemFileImporter.swift */; };
+		144266C00578D4F0A9F39E67 /* OwnersMeetingEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF9B50BE722C2961AB9E7AE8 /* OwnersMeetingEvent.swift */; };
 		149006CDCC73DE0417184CF8 /* Tenant.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB4BE5F2F31D58F8E5A6D1F6 /* Tenant.swift */; };
 		1550955B60F8771B0D4BF177 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A8F6CFF3B0D6787E87FAE158 /* Assets.xcassets */; };
-		18AD2C69063235E4240B0A8B /* TaxReportLayoutStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C3316E611F57E0281BAD5ED /* TaxReportLayoutStyle.swift */; };
 		1A109FA023AA511BD1873981 /* Unit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 841D4C09EAC98E6756C6CF65 /* Unit.swift */; };
 		1B382F0E3DFF882E60031657 /* TravelExpenseListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBCD2C4534EA4F0743C62FF0 /* TravelExpenseListView.swift */; };
 		1BD9669371DCEB2834240EB3 /* WirtschaftsplanStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2BEFF54123837DCCEB69F7 /* WirtschaftsplanStatement.swift */; };
@@ -22,9 +30,9 @@
 		1CBCAB95A6FE0D795B26219B /* TaxModulePropertyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7F171D1107AEDF464479133 /* TaxModulePropertyView.swift */; };
 		1D3A92086F5DCD2C5FCCE924 /* TravelExpenseEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35DE9F05E2C1D87A3D15C1B5 /* TravelExpenseEditView.swift */; };
 		1E1E368AC5B0E292757381E3 /* WirtschaftsplanDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDFE6786D4FCE6D33A739218 /* WirtschaftsplanDetailView.swift */; };
+		210A2CC727A752CA90C1C167 /* OwnersMeetingEvent.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF9B50BE722C2961AB9E7AE8 /* OwnersMeetingEvent.swift */; };
 		2150D791C02C475182357602 /* UnitFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F446EC33F57E5F800D552F3 /* UnitFeature.swift */; };
 		219C06C195BCBDB078DD9B12 /* DepreciableAssetEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9BB587E616A593575531EB2 /* DepreciableAssetEditView.swift */; };
-		222DA53D8F1E595EAE36DEE3 /* MoeblierungReportDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 896CDDF42ECA7F4BB2DF7523 /* MoeblierungReportDocument.swift */; };
 		223619A072681125A71312FA /* Tenancy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5845FDF7EBB418C15207892C /* Tenancy.swift */; };
 		24B2139DAE4B560AA1E557F1 /* RentPayment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D8D00DBF0B5E26FB2B9786 /* RentPayment.swift */; };
 		24D20FAC150C15D37D1FD24F /* LandlordEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8EF6EDB92DFA0BA0CF993E6 /* LandlordEditView.swift */; };
@@ -32,6 +40,7 @@
 		267E0465061F056D26965ED9 /* DocumentListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95E4835CBDF4D7980F1E9EEA /* DocumentListView.swift */; };
 		26E162BE1C1F0B2F4B1F0BFD /* RecordPaymentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 287697795A5039E8F348CE30 /* RecordPaymentView.swift */; };
 		274E322721C34C251F0342A0 /* PropertyEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E22DAA89E8CEB868DC69E02 /* PropertyEditView.swift */; };
+		276C552E1F07DD1D0AF5F19A /* AppSchema.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC2CE05945DC9DFD4404BCA4 /* AppSchema.swift */; };
 		27FA9E6A232408C389EEC1F8 /* Property.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A32E6E3456268E2347615D5 /* Property.swift */; };
 		28310E8D9704402C850186DF /* TaxChecklistSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA531BE01BFD6FCFF36F92BF /* TaxChecklistSeeder.swift */; };
 		28478387BC976E5ABD1E3D1A /* DocumentCameraScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24E214074D6DE94F4443707E /* DocumentCameraScanner.swift */; };
@@ -40,10 +49,12 @@
 		2BC95EAA600A38506544B91E /* TrackedYear.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70636833E7598C0A6649B91F /* TrackedYear.swift */; };
 		2C4985DA3B649DD4F57991A6 /* TaxChecklistSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA531BE01BFD6FCFF36F92BF /* TaxChecklistSeeder.swift */; };
 		2DA96C612D423DD6F906A0FC /* DepreciableAssetEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9BB587E616A593575531EB2 /* DepreciableAssetEditView.swift */; };
+		2E1FE692B4A74501579A3204 /* UtilityAllocationCalculatorTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = D2052E316BFC6C57EFF2C2A0 /* UtilityAllocationCalculatorTests.swift */; };
 		2F8F2B2620FD8A0C7083EE75 /* ThreeYearThresholdCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EF11AD2D0E4FB8A87BAAA95 /* ThreeYearThresholdCase.swift */; };
 		2FC7373A80D9A90327AE58CD /* OCRTextRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C780F8B8F91C5CFA932D0BF /* OCRTextRecognizer.swift */; };
 		2FF325C36B2822E53CF10E86 /* AppearanceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 097F40B67EFEBA533D20EE23 /* AppearanceSettingsView.swift */; };
 		2FFF5B3890E8AE1954437A45 /* UtilityStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 646A2B4C8E9ECA138C689449 /* UtilityStatement.swift */; };
+		31D8AEE919C9ED9A61757406 /* BackgroundWork.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96299BB4EEECA270DA251156 /* BackgroundWork.swift */; };
 		32762EC4EE23799B85AD1927 /* PreviewData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96E870554D07A8A7962B5366 /* PreviewData.swift */; };
 		3316D2B6532D44559AA115DF /* UnitFeature.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6F446EC33F57E5F800D552F3 /* UnitFeature.swift */; };
 		3411A1C8654D360356938A24 /* MietverwaltungApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EBB187094A175B457A641A6 /* MietverwaltungApp.swift */; };
@@ -51,14 +62,20 @@
 		3861C15869FB7A454953B39A /* PropertyEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2E22DAA89E8CEB868DC69E02 /* PropertyEditView.swift */; };
 		3923F72B911A850E27DE368D /* TenantEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8FDF70AF40E6126A31762EC /* TenantEditView.swift */; };
 		3970725BF969B875FBE370DA /* NebenkostenabrechnungDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82627A9955CB9F9673DB184A /* NebenkostenabrechnungDocument.swift */; };
+		3F198EFCA9A5D21A50452705 /* AppSchema.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC2CE05945DC9DFD4404BCA4 /* AppSchema.swift */; };
+		3F2E1C2489ED7CF0F105B993 /* RemindersEngineTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0C90CF322CEC50BA670370E /* RemindersEngineTests.swift */; };
 		3F92FFE5775900F9B9F3D2BB /* UtilityStatementDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B54988AD6535AE686A6B26DA /* UtilityStatementDetailView.swift */; };
+		400F634B3233DD08F52A7113 /* AssetReportDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4383B4909A098895B0D84BDE /* AssetReportDocument.swift */; };
 		4190CD33ED4605027E1FBA14 /* TilgungsplanReportDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5210130F5057935FE97B8683 /* TilgungsplanReportDocument.swift */; };
 		42AEB887CC675AED3791D264 /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D585BAF64CAEA2275932E /* Formatters.swift */; };
 		42AF321F954E61A91BFD5877 /* TaxCalculationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E909935DAD808EDFFC0FF3B5 /* TaxCalculationTests.swift */; };
 		42CD801ADFECFBB415847FB0 /* CapitalizationDecision.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C3899F99749AD800F2D8BE2 /* CapitalizationDecision.swift */; };
 		436A12B95362A2F8D1A1357F /* LandlordEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8EF6EDB92DFA0BA0CF993E6 /* LandlordEditView.swift */; };
 		4917BB2C5AE76099D24716ED /* TenantListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CEB60823677D155487F8CBD /* TenantListView.swift */; };
+		49236F2F38867345CE8493AC /* CalendarEventManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 320712B3D95931983E4D95A9 /* CalendarEventManager.swift */; };
 		4AB44A4221B62F34AF84C6C7 /* PropertyDocumentOCR.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69FB62FDADFA923F25EB2921 /* PropertyDocumentOCR.swift */; };
+		4AD15A26D38D5B82738695D0 /* XLSXImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310F5F2F3706A1F23685512D /* XLSXImporter.swift */; };
+		4B8F039069594281C3A40D2E /* DocumentCategoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7536EB2BA62C85A823557D71 /* DocumentCategoryView.swift */; };
 		4B9223C06B4084DBD300BBD1 /* LandlordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0821FAED454E3B716EB03D7 /* LandlordView.swift */; };
 		4BC820678D82F966DAC32732 /* Expense.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A18CB032EF40EF18EEF55BC /* Expense.swift */; };
 		4CBD17DA459A758CFA34C6DB /* LineItemDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54884C5C52A790E58AD5B9AA /* LineItemDraft.swift */; };
@@ -70,23 +87,34 @@
 		518F011E31B74C46E3720C9C /* NebenkostenabrechnungDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 82627A9955CB9F9673DB184A /* NebenkostenabrechnungDocument.swift */; };
 		51FCACA539CEDCB808A0DA24 /* TaxModuleView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4232501FE46C4C2531D1CCB0 /* TaxModuleView.swift */; };
 		536B1624A980BF3D89683BA6 /* PropertyDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA8E6E9F5BB1CE5D76ED08DF /* PropertyDetailView.swift */; };
+		561CE4D448FC10D2F1F06165 /* RentStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A157B91AA92C940A8E13C9A /* RentStep.swift */; };
 		580948E48246EE2E87599813 /* FlowBadges.swift in Sources */ = {isa = PBXBuildFile; fileRef = 490E060E57B19E91F2D11DA0 /* FlowBadges.swift */; };
 		595BD3DD9551BA8A17AD9510 /* TenancyEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6202E7D09C7E844AB24E845 /* TenancyEditView.swift */; };
+		597F92844AA618790542F1AB /* DocumentCategoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7536EB2BA62C85A823557D71 /* DocumentCategoryView.swift */; };
 		5A7A236B31FD8F4BEE034F2A /* AddDocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A072D6382844CB1C86A5EE87 /* AddDocumentView.swift */; };
 		5C0BCAF8447807AD34D41B7B /* WirtschaftsplanEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76A55E53BE8261EDB0CA07FE /* WirtschaftsplanEditView.swift */; };
+		5C6E0C3A9DB1CAFEF06107F7 /* RentStep.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0A157B91AA92C940A8E13C9A /* RentStep.swift */; };
 		5F124A281B39EA5F562D9DAA /* MoeblierungListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1289034BAEB2F9862F9C1D /* MoeblierungListView.swift */; };
 		60A40AA5B2D7CC959DCB8D19 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A8F6CFF3B0D6787E87FAE158 /* Assets.xcassets */; };
 		60FF34E288A3A1147993CCA7 /* Property.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8A32E6E3456268E2347615D5 /* Property.swift */; };
+		615A9F1E78016E538E0FC4AE /* OwnersMeetingEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D22F6A68EA9BD09D6D643D0 /* OwnersMeetingEditView.swift */; };
+		645374A78ACCF152724A3CE1 /* XLSXImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 310F5F2F3706A1F23685512D /* XLSXImporter.swift */; };
 		65013083F89396417A8BF4EB /* TenantEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8FDF70AF40E6126A31762EC /* TenantEditView.swift */; };
 		65E8412CE1D01EED684E14FD /* PropertyDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CA8E6E9F5BB1CE5D76ED08DF /* PropertyDetailView.swift */; };
 		664D050B1B247C93A782A4C9 /* TaxTreatment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0094C18CB898C16BDEAD83D7 /* TaxTreatment.swift */; };
+		68D1950C80096181CF63794C /* LineItemRowParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E9A0DEE785874E91219AE85 /* LineItemRowParser.swift */; };
 		6BB1E8F9BBEBC3CF026B2DC0 /* TaxReportPDFBuilderTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 182E6CC7EB429331BC0F98F3 /* TaxReportPDFBuilderTests.swift */; };
 		6ECB5A7B391651B757D90571 /* TaxGlossaryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E4B84E24783A7FAA45A0AFE9 /* TaxGlossaryView.swift */; };
+		6F90AA84A1C5C5BA77F37FE7 /* DocumentFolder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C52FEFC2D10BEE8EAB24556E /* DocumentFolder.swift */; };
 		70DFB30D293921290FA59AA3 /* HomeOfficeEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80A7F9C62A1DABBD938877D9 /* HomeOfficeEntry.swift */; };
+		72CB27471C55D0C5ADEF2227 /* ExportFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCD37386F4D459FE0866F2F3 /* ExportFile.swift */; };
+		73EBFF6EDC515ED114A927BC /* AssetReportDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4383B4909A098895B0D84BDE /* AssetReportDocument.swift */; };
 		751B84BA97FA821B245A96C7 /* Expense.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1A18CB032EF40EF18EEF55BC /* Expense.swift */; };
 		79A86B93A2EBED2EB4E3D0C8 /* RemindersEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B2D4AFC75FAD97D91A909 /* RemindersEngine.swift */; };
+		7A32D115777C62FB376F4546 /* LineItemImportModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0F968327EF54DF48BB2B7C /* LineItemImportModifier.swift */; };
 		7C009ECEBF4F0A978E50D832 /* XLSXExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 315AC0BA58663C43481DD6AC /* XLSXExporter.swift */; };
 		7C0A98367C3EAB1D0E02DFFF /* RemainingUsefulLifeAppraisalListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B90A8F41D8E7537662BDE11B /* RemainingUsefulLifeAppraisalListView.swift */; };
+		7C32C4B3804C2AA8FC0F6C02 /* DecimalInputParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 262BD2A2F05BEF9E4A0C59B3 /* DecimalInputParser.swift */; };
 		7E04973367D1E96FB5F510C3 /* UtilityStatementListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03E45AD06E16C199F740D257 /* UtilityStatementListView.swift */; };
 		7E861604B1CD71A10300B33D /* ExpenseReportDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0445F22B27142AA645C791EE /* ExpenseReportDocument.swift */; };
 		7F2D6DB92407713B68BBA12F /* GebaeudeAfaReportDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2AF7D7589573127CCDA0DE21 /* GebaeudeAfaReportDocument.swift */; };
@@ -94,7 +122,9 @@
 		807E76A28EEE1F686D37B34A /* PreviewData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96E870554D07A8A7962B5366 /* PreviewData.swift */; };
 		81D98FC516D9FF730702729C /* HerstellungskostenListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15189EADC2B405B6DC00E191 /* HerstellungskostenListView.swift */; };
 		82DA57157A0D623BBAD64E8E /* MoeblierungListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B1289034BAEB2F9862F9C1D /* MoeblierungListView.swift */; };
+		850C053E326B7CD58468EBCF /* WirtschaftsberichtDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31023ACFFF379BF047C00632 /* WirtschaftsberichtDocument.swift */; };
 		85537819AC9D8694A4FF6253 /* CSVImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8BA665915E9375E47FF9D05 /* CSVImporter.swift */; };
+		861DB653F8D9B7DD17664410 /* OwnersMeetingEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D22F6A68EA9BD09D6D643D0 /* OwnersMeetingEditView.swift */; };
 		86E65C7F926C37E308DD0A58 /* ExpenseEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1C2757D5A16A572738ECD4B /* ExpenseEditView.swift */; };
 		875E8BEF0746AA235F425FD2 /* FlowBadges.swift in Sources */ = {isa = PBXBuildFile; fileRef = 490E060E57B19E91F2D11DA0 /* FlowBadges.swift */; };
 		87832FA9D349C7EA0056EF30 /* TenancyEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6202E7D09C7E844AB24E845 /* TenancyEditView.swift */; };
@@ -103,21 +133,25 @@
 		8B9E547CB6DDE59EBB78A4AA /* UnitEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D33FD71E5A59290F02FFE14 /* UnitEditView.swift */; };
 		8D2AD17B0A4F196E89737D05 /* WirtschaftsplanStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2F2BEFF54123837DCCEB69F7 /* WirtschaftsplanStatement.swift */; };
 		8EFE763EAA284E50D5DDE604 /* TenantListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5CEB60823677D155487F8CBD /* TenantListView.swift */; };
+		8FBD911AAB86C406CC2AC500 /* CalendarEventManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 320712B3D95931983E4D95A9 /* CalendarEventManager.swift */; };
 		9065B317B9375C26D89FBF33 /* AddYearView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FA45B3A9F61A09051BFACA /* AddYearView.swift */; };
 		9102379684E7FA7225491F22 /* ExpenseReportDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0445F22B27142AA645C791EE /* ExpenseReportDocument.swift */; };
 		91F89FA1BDBC58CE0042349C /* PropertyListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5B12C5724FD446F6F412C964 /* PropertyListView.swift */; };
-		92809243ADDA1A07EEC2082B /* MoeblierungReportDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 896CDDF42ECA7F4BB2DF7523 /* MoeblierungReportDocument.swift */; };
 		980793ACD3614A7B0FE0101C /* Tenant.swift in Sources */ = {isa = PBXBuildFile; fileRef = CB4BE5F2F31D58F8E5A6D1F6 /* Tenant.swift */; };
+		981B0FCE98C9F54ABFD6DED1 /* RentIncreaseAdvisor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C26031500A408CD587CE65DD /* RentIncreaseAdvisor.swift */; };
 		9855EFCB6D2EB4E5E8AD3DB1 /* LineItemDraft.swift in Sources */ = {isa = PBXBuildFile; fileRef = 54884C5C52A790E58AD5B9AA /* LineItemDraft.swift */; };
+		9A2784512623338E26766D61 /* UtilityAllocationCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51065A26503889728087727C /* UtilityAllocationCalculator.swift */; };
 		9A68628CA5B43A4F8EA04A13 /* ThreeYearThresholdCase.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EF11AD2D0E4FB8A87BAAA95 /* ThreeYearThresholdCase.swift */; };
 		9CDCDEC2EF6AAE76B5C9FDC8 /* UtilityStatementEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0CE0AED192BB3E30329F235B /* UtilityStatementEditView.swift */; };
 		9DF947FB47D02DE8AB4D879B /* PropertyDocumentScanReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 968E6A5D6BD88A38D5AB50A0 /* PropertyDocumentScanReviewView.swift */; };
 		9E80EB14813A70DC818B22F6 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF7ECBB45465974178902443 /* DashboardView.swift */; };
 		A0BECC5D291F8E714101BD12 /* DemoSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52EF6FE5946D5BFCBE6B2B20 /* DemoSeeder.swift */; };
 		A114E91B391E56D730938E4B /* Unit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 841D4C09EAC98E6756C6CF65 /* Unit.swift */; };
+		A1A8E3D2BA57779B686F5C6C /* PortfolioMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA48550870CE2D2873CE4518 /* PortfolioMetrics.swift */; };
 		A24F8F23EEE73BAA8D903931 /* RentPayment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 94D8D00DBF0B5E26FB2B9786 /* RentPayment.swift */; };
 		A25F76AE2497B92941B6B3FD /* ReceiptScanReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 116C8D26220B47538CEFD5F5 /* ReceiptScanReviewView.swift */; };
 		A46561ED1BDCC84CA81A892F /* AllocationMethod.swift in Sources */ = {isa = PBXBuildFile; fileRef = 61223BEB3DB609036DF3D621 /* AllocationMethod.swift */; };
+		A5294E9B1C53019F203A6307 /* PortfolioAndReceiptTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8C9E922AB6277172671EF07 /* PortfolioAndReceiptTests.swift */; };
 		A5DDC65FEB5EFBC5E48ED85C /* CSVImporterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B1182877833E8B37E6A858D2 /* CSVImporterTests.swift */; };
 		A6D8A4F1DDE8EB8FC29D0011 /* TilgungsplanReportDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5210130F5057935FE97B8683 /* TilgungsplanReportDocument.swift */; };
 		AA36F70AA5E4EF5610D8579B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34DEA282F0A508A2DB17D833 /* ContentView.swift */; };
@@ -127,16 +161,19 @@
 		ADA011C78C093A32592A558E /* ThresholdCaseDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CAFDFAC9A46249C39DAC21A /* ThresholdCaseDetailView.swift */; };
 		ADCE780ACD64E72909374E41 /* Tenancy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5845FDF7EBB418C15207892C /* Tenancy.swift */; };
 		AE2E47E4760CEAA2363B0E4D /* LandlordView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E0821FAED454E3B716EB03D7 /* LandlordView.swift */; };
+		AE9A9B6A9C544959811CC325 /* BackgroundWork.swift in Sources */ = {isa = PBXBuildFile; fileRef = 96299BB4EEECA270DA251156 /* BackgroundWork.swift */; };
 		AE9C5E386200EF0AF03CEFD9 /* Document.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0037A9A281C32343AE789F /* Document.swift */; };
 		B02F363D4EED7CC12B84A133 /* LineItemImportReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3624FB55BF4841FC0A8326D /* LineItemImportReviewView.swift */; };
+		B0FF5E13430CD1A014500708 /* LineItemFileImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C9E44C0C3D2915F5B3BB03CA /* LineItemFileImporter.swift */; };
 		B168471DB0E38E4691C9A0C5 /* OCRTextRecognizer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C780F8B8F91C5CFA932D0BF /* OCRTextRecognizer.swift */; };
+		B27ACDB821E61D9F3D175B99 /* LineItemImportModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9C0F968327EF54DF48BB2B7C /* LineItemImportModifier.swift */; };
 		B2D2F62334D3003F842C889C /* PaymentsOverviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FC4EDCBC95855C25FB15445 /* PaymentsOverviewView.swift */; };
+		B575E37CD9B5B35441114902 /* TaxFilingStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92921BA7771FC36424C9640E /* TaxFilingStatus.swift */; };
 		B605A390F350E7D023589376 /* DemoSeeder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 52EF6FE5946D5BFCBE6B2B20 /* DemoSeeder.swift */; };
 		BAA44ADD8583884025E2CDD2 /* CSVImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8BA665915E9375E47FF9D05 /* CSVImporter.swift */; };
 		BBBA6E6D76723A569C37860A /* TaxModulePropertyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7F171D1107AEDF464479133 /* TaxModulePropertyView.swift */; };
 		BC88F8698FD467E27CF4594C /* DocumentCameraScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24E214074D6DE94F4443707E /* DocumentCameraScanner.swift */; };
 		BF359D95F49BE4C6190BFF43 /* HomeOfficeAllocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F9B248F91EB9AA8801723E /* HomeOfficeAllocation.swift */; };
-		C1461C5009B6655DB6F8CA3D /* TaxReportLayoutStyle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C3316E611F57E0281BAD5ED /* TaxReportLayoutStyle.swift */; };
 		C2DC6BA63DF31323FD77F195 /* GesamtuebersichtReportDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = B704F83BB3F5986B7E6B6A17 /* GesamtuebersichtReportDocument.swift */; };
 		C41C876D7C8C84AC3CD3C88C /* Document.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0037A9A281C32343AE789F /* Document.swift */; };
 		C9FE4767C915720474D5C820 /* TenantDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B8E7F28433138B91BECA0312 /* TenantDetailView.swift */; };
@@ -149,15 +186,21 @@
 		CFD0D09FAA5086B509D5663A /* PDFExporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3A987A5326CB85267CEA9A7E /* PDFExporter.swift */; };
 		D261D44259E2E894A4F45370 /* AppearanceSettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 097F40B67EFEBA533D20EE23 /* AppearanceSettingsView.swift */; };
 		D271BB854544186979EB0583 /* WirtschaftsplanEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76A55E53BE8261EDB0CA07FE /* WirtschaftsplanEditView.swift */; };
+		D42FDED9901A9E64FFFC1A0E /* WirtschaftsberichtDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 31023ACFFF379BF047C00632 /* WirtschaftsberichtDocument.swift */; };
+		D4A3EDC5B10ED00486212FB7 /* DecimalInputParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 262BD2A2F05BEF9E4A0C59B3 /* DecimalInputParser.swift */; };
+		D5EE372A084C8D1F84E7F2D6 /* LineItemRowParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7E9A0DEE785874E91219AE85 /* LineItemRowParser.swift */; };
 		D74899A7E1005684FC292F7D /* ExpenseListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8017A350A057F4477511FF5B /* ExpenseListView.swift */; };
+		D7A7CC9C86D03D111AA30BD6 /* NotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = B538BCD0C886EC4CB7FEC8CF /* NotificationScheduler.swift */; };
 		D7B89A12562A68AC519B93E0 /* MietverwaltungApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9EBB187094A175B457A641A6 /* MietverwaltungApp.swift */; };
 		D81999E6F34ACE3D64D16F62 /* DashboardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = EF7ECBB45465974178902443 /* DashboardView.swift */; };
 		D90012A17FB07403A6DCBC00 /* RemainingUsefulLifeAppraisalEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0233C28AE459FD701F554FB3 /* RemainingUsefulLifeAppraisalEditView.swift */; };
 		D90E27728B5E6E8F20E6E86C /* TravelExpenseListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBCD2C4534EA4F0743C62FF0 /* TravelExpenseListView.swift */; };
 		DA24D96C0B018ECFBB09B984 /* TaxChecklistItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = C091634DFD8D185EBD17AAFE /* TaxChecklistItem.swift */; };
 		DBA60317FBBF6A6F4BAD3AAC /* PropertyPurchaseContractScanReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8010C1261F6162646532221E /* PropertyPurchaseContractScanReviewView.swift */; };
+		DC96583E4BCD390C0A3E29B9 /* UtilityAllocationCalculator.swift in Sources */ = {isa = PBXBuildFile; fileRef = 51065A26503889728087727C /* UtilityAllocationCalculator.swift */; };
 		DDEB092AC336BF7D43F52F61 /* AddDocumentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A072D6382844CB1C86A5EE87 /* AddDocumentView.swift */; };
 		DE39DE190B1198CBAA91C9B2 /* CapitalizationDecision.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C3899F99749AD800F2D8BE2 /* CapitalizationDecision.swift */; };
+		DE775DDAF161AD8B9DF4E90C /* RentIncreaseAdvisor.swift in Sources */ = {isa = PBXBuildFile; fileRef = C26031500A408CD587CE65DD /* RentIncreaseAdvisor.swift */; };
 		DF77592CDAFB6D8461C535FF /* DocumentListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 95E4835CBDF4D7980F1E9EEA /* DocumentListView.swift */; };
 		DFB3934C46B4C2F9EF538ED5 /* ThresholdCaseDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1CAFDFAC9A46249C39DAC21A /* ThresholdCaseDetailView.swift */; };
 		E04582BAD4E4D43BE6EAEC4B /* RemainingUsefulLifeAppraisalListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B90A8F41D8E7537662BDE11B /* RemainingUsefulLifeAppraisalListView.swift */; };
@@ -168,10 +211,12 @@
 		E3970B41FD69FB778E801780 /* DepreciableAsset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33A3D466B361996A66581AF7 /* DepreciableAsset.swift */; };
 		E3C970D785D1F3EF16357F27 /* Components.swift in Sources */ = {isa = PBXBuildFile; fileRef = C95D2177263AF503DEBC4C42 /* Components.swift */; };
 		E437AB3D89AE55C7076D7F9E /* ReceiptScanReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 116C8D26220B47538CEFD5F5 /* ReceiptScanReviewView.swift */; };
+		E48BAAF8E37897ECFA29D945 /* DocumentFolder.swift in Sources */ = {isa = PBXBuildFile; fileRef = C52FEFC2D10BEE8EAB24556E /* DocumentFolder.swift */; };
 		E66418D47DA703FB91B2A458 /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = D8C8388E3E1610A1ABD42677 /* Theme.swift */; };
 		EA9DD8CAB39E57228D23C03A /* PropertyDocumentOCR.swift in Sources */ = {isa = PBXBuildFile; fileRef = 69FB62FDADFA923F25EB2921 /* PropertyDocumentOCR.swift */; };
 		EC0C89D1631A08F925F28DF4 /* LineItemsEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21333D1B53A1F58D28BBE7E9 /* LineItemsEditor.swift */; };
 		EC44FD2BB782EC17D6576F1B /* PropertyDocumentScanReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 968E6A5D6BD88A38D5AB50A0 /* PropertyDocumentScanReviewView.swift */; };
+		EC5E8A46D6FB8EC2BA1F0A96 /* ModelIntegrityTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F3B07B6EFF9602FFFDBE4C0A /* ModelIntegrityTests.swift */; };
 		ED2A0465C317A37962A3D6DB /* RemainingUsefulLifeAppraisalEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0233C28AE459FD701F554FB3 /* RemainingUsefulLifeAppraisalEditView.swift */; };
 		EF074E6F912C3C58E7D87128 /* LineItemsEditor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 21333D1B53A1F58D28BBE7E9 /* LineItemsEditor.swift */; };
 		EF231FCC04BEA4AA12E6C3C8 /* TaxReportPDFBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDDD89E2F999F4FC9E463CE0 /* TaxReportPDFBuilder.swift */; };
@@ -182,17 +227,20 @@
 		F267A92CC8533EFAE31A399E /* ExpenseEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C1C2757D5A16A572738ECD4B /* ExpenseEditView.swift */; };
 		F2BBFB9561C51187BF23C667 /* AddYearView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71FA45B3A9F61A09051BFACA /* AddYearView.swift */; };
 		F4883E7C7AFCF12E26B1DF4A /* ExpenseListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8017A350A057F4477511FF5B /* ExpenseListView.swift */; };
+		F560CC1F7F3F1EAF645E51DB /* NotificationScheduler.swift in Sources */ = {isa = PBXBuildFile; fileRef = B538BCD0C886EC4CB7FEC8CF /* NotificationScheduler.swift */; };
 		F6655323346AEE5173DB6934 /* TaxReportPDFBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = BDDD89E2F999F4FC9E463CE0 /* TaxReportPDFBuilder.swift */; };
 		F6BE6CDBC36C3EB3EF6AC34C /* TravelExpenseEditView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35DE9F05E2C1D87A3D15C1B5 /* TravelExpenseEditView.swift */; };
 		F747F9CA2F6D9EE853409CFC /* UtilityStatement.swift in Sources */ = {isa = PBXBuildFile; fileRef = 646A2B4C8E9ECA138C689449 /* UtilityStatement.swift */; };
 		F8BEC94B746A2A6E303052A4 /* TravelExpense.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA44B0CD56953B75709D6B93 /* TravelExpense.swift */; };
 		F949488A3587DECC9313498B /* RemindersEngine.swift in Sources */ = {isa = PBXBuildFile; fileRef = 942B2D4AFC75FAD97D91A909 /* RemindersEngine.swift */; };
+		F9A010A90B53D92F11DDF2E3 /* XLSXImporterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = CF109A05CC3B02000E4F919F /* XLSXImporterTests.swift */; };
 		FA815E8707E9FB224AE439EC /* UnitDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6BA3A9D4C2FBEEE22CFC82B8 /* UnitDetailView.swift */; };
 		FC607CF2E3A70E1CBDA08084 /* DepreciableAsset.swift in Sources */ = {isa = PBXBuildFile; fileRef = 33A3D466B361996A66581AF7 /* DepreciableAsset.swift */; };
 		FCF37D0E8B9C29DCDC88E106 /* HomeOfficeEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = 80A7F9C62A1DABBD938877D9 /* HomeOfficeEntry.swift */; };
 		FD08AA1CEE252CAB1E55F503 /* LineItemImportReviewView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A3624FB55BF4841FC0A8326D /* LineItemImportReviewView.swift */; };
 		FE08B503F2917EC96B7DEF5A /* TaxTreatment.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0094C18CB898C16BDEAD83D7 /* TaxTreatment.swift */; };
 		FE7A537AD3EE9C4999C79D88 /* TaxChecklistItem.swift in Sources */ = {isa = PBXBuildFile; fileRef = C091634DFD8D185EBD17AAFE /* TaxChecklistItem.swift */; };
+		FEE8BE0321C3DAF6E1650B58 /* TaxFilingStatus.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92921BA7771FC36424C9640E /* TaxFilingStatus.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -212,6 +260,7 @@
 		0445F22B27142AA645C791EE /* ExpenseReportDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpenseReportDocument.swift; sourceTree = "<group>"; };
 		0841980819EB3B8999FC094C /* Mietverwaltung-iOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = "Mietverwaltung-iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		097F40B67EFEBA533D20EE23 /* AppearanceSettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppearanceSettingsView.swift; sourceTree = "<group>"; };
+		0A157B91AA92C940A8E13C9A /* RentStep.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RentStep.swift; sourceTree = "<group>"; };
 		0CE0AED192BB3E30329F235B /* UtilityStatementEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtilityStatementEditView.swift; sourceTree = "<group>"; };
 		116C8D26220B47538CEFD5F5 /* ReceiptScanReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptScanReviewView.swift; sourceTree = "<group>"; };
 		15189EADC2B405B6DC00E191 /* HerstellungskostenListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HerstellungskostenListView.swift; sourceTree = "<group>"; };
@@ -222,29 +271,37 @@
 		1CAFDFAC9A46249C39DAC21A /* ThresholdCaseDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThresholdCaseDetailView.swift; sourceTree = "<group>"; };
 		21333D1B53A1F58D28BBE7E9 /* LineItemsEditor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineItemsEditor.swift; sourceTree = "<group>"; };
 		24E214074D6DE94F4443707E /* DocumentCameraScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentCameraScanner.swift; sourceTree = "<group>"; };
+		256957E562A4C33E14757FB7 /* FormValidation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FormValidation.swift; sourceTree = "<group>"; };
+		262BD2A2F05BEF9E4A0C59B3 /* DecimalInputParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimalInputParser.swift; sourceTree = "<group>"; };
 		273489321C191D707E1A0BD7 /* Landlord.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Landlord.swift; sourceTree = "<group>"; };
 		287697795A5039E8F348CE30 /* RecordPaymentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecordPaymentView.swift; sourceTree = "<group>"; };
 		2AF7D7589573127CCDA0DE21 /* GebaeudeAfaReportDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GebaeudeAfaReportDocument.swift; sourceTree = "<group>"; };
 		2C780F8B8F91C5CFA932D0BF /* OCRTextRecognizer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OCRTextRecognizer.swift; sourceTree = "<group>"; };
 		2E22DAA89E8CEB868DC69E02 /* PropertyEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PropertyEditView.swift; sourceTree = "<group>"; };
 		2F2BEFF54123837DCCEB69F7 /* WirtschaftsplanStatement.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WirtschaftsplanStatement.swift; sourceTree = "<group>"; };
+		31023ACFFF379BF047C00632 /* WirtschaftsberichtDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WirtschaftsberichtDocument.swift; sourceTree = "<group>"; };
+		310F5F2F3706A1F23685512D /* XLSXImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XLSXImporter.swift; sourceTree = "<group>"; };
 		315AC0BA58663C43481DD6AC /* XLSXExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XLSXExporter.swift; sourceTree = "<group>"; };
+		320712B3D95931983E4D95A9 /* CalendarEventManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarEventManager.swift; sourceTree = "<group>"; };
 		32C2A0E0394503F91D2DEB55 /* Preview Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = "Preview Assets.xcassets"; sourceTree = "<group>"; };
 		33A3D466B361996A66581AF7 /* DepreciableAsset.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepreciableAsset.swift; sourceTree = "<group>"; };
 		34DEA282F0A508A2DB17D833 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		35DE9F05E2C1D87A3D15C1B5 /* TravelExpenseEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TravelExpenseEditView.swift; sourceTree = "<group>"; };
 		3A987A5326CB85267CEA9A7E /* PDFExporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PDFExporter.swift; sourceTree = "<group>"; };
+		3D22F6A68EA9BD09D6D643D0 /* OwnersMeetingEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnersMeetingEditView.swift; sourceTree = "<group>"; };
 		3FC4EDCBC95855C25FB15445 /* PaymentsOverviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PaymentsOverviewView.swift; sourceTree = "<group>"; };
 		4232501FE46C4C2531D1CCB0 /* TaxModuleView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxModuleView.swift; sourceTree = "<group>"; };
+		4383B4909A098895B0D84BDE /* AssetReportDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AssetReportDocument.swift; sourceTree = "<group>"; };
 		490E060E57B19E91F2D11DA0 /* FlowBadges.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FlowBadges.swift; sourceTree = "<group>"; };
 		4D33FD71E5A59290F02FFE14 /* UnitEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnitEditView.swift; sourceTree = "<group>"; };
+		51065A26503889728087727C /* UtilityAllocationCalculator.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtilityAllocationCalculator.swift; sourceTree = "<group>"; };
+		51617ACAD12CA0D3811DB09B /* DecimalInputParserTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DecimalInputParserTests.swift; sourceTree = "<group>"; };
 		5210130F5057935FE97B8683 /* TilgungsplanReportDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TilgungsplanReportDocument.swift; sourceTree = "<group>"; };
 		52EF6FE5946D5BFCBE6B2B20 /* DemoSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoSeeder.swift; sourceTree = "<group>"; };
 		5318A62A7AE23B7B08947B21 /* Mietverwaltung-macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Mietverwaltung-macOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		54884C5C52A790E58AD5B9AA /* LineItemDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineItemDraft.swift; sourceTree = "<group>"; };
 		5845FDF7EBB418C15207892C /* Tenancy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tenancy.swift; sourceTree = "<group>"; };
 		5B12C5724FD446F6F412C964 /* PropertyListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PropertyListView.swift; sourceTree = "<group>"; };
-		5C3316E611F57E0281BAD5ED /* TaxReportLayoutStyle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxReportLayoutStyle.swift; sourceTree = "<group>"; };
 		5C3899F99749AD800F2D8BE2 /* CapitalizationDecision.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapitalizationDecision.swift; sourceTree = "<group>"; };
 		5CEB60823677D155487F8CBD /* TenantListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TenantListView.swift; sourceTree = "<group>"; };
 		61223BEB3DB609036DF3D621 /* AllocationMethod.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AllocationMethod.swift; sourceTree = "<group>"; };
@@ -255,28 +312,36 @@
 		70636833E7598C0A6649B91F /* TrackedYear.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TrackedYear.swift; sourceTree = "<group>"; };
 		71FA45B3A9F61A09051BFACA /* AddYearView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddYearView.swift; sourceTree = "<group>"; };
 		74A621B0517D0F1C9490DC21 /* ReceiptOCR.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptOCR.swift; sourceTree = "<group>"; };
+		7536EB2BA62C85A823557D71 /* DocumentCategoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentCategoryView.swift; sourceTree = "<group>"; };
 		76A55E53BE8261EDB0CA07FE /* WirtschaftsplanEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = WirtschaftsplanEditView.swift; sourceTree = "<group>"; };
 		7B1289034BAEB2F9862F9C1D /* MoeblierungListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoeblierungListView.swift; sourceTree = "<group>"; };
 		7BAB38F6D448CF9A8902B9A7 /* ReceiptTextExtractor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ReceiptTextExtractor.swift; sourceTree = "<group>"; };
+		7E9A0DEE785874E91219AE85 /* LineItemRowParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineItemRowParser.swift; sourceTree = "<group>"; };
 		8010C1261F6162646532221E /* PropertyPurchaseContractScanReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PropertyPurchaseContractScanReviewView.swift; sourceTree = "<group>"; };
 		8017A350A057F4477511FF5B /* ExpenseListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpenseListView.swift; sourceTree = "<group>"; };
 		80A7F9C62A1DABBD938877D9 /* HomeOfficeEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeOfficeEntry.swift; sourceTree = "<group>"; };
 		82627A9955CB9F9673DB184A /* NebenkostenabrechnungDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NebenkostenabrechnungDocument.swift; sourceTree = "<group>"; };
 		841D4C09EAC98E6756C6CF65 /* Unit.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Unit.swift; sourceTree = "<group>"; };
-		896CDDF42ECA7F4BB2DF7523 /* MoeblierungReportDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MoeblierungReportDocument.swift; sourceTree = "<group>"; };
 		8A32E6E3456268E2347615D5 /* Property.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Property.swift; sourceTree = "<group>"; };
+		92921BA7771FC36424C9640E /* TaxFilingStatus.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxFilingStatus.swift; sourceTree = "<group>"; };
 		942B2D4AFC75FAD97D91A909 /* RemindersEngine.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersEngine.swift; sourceTree = "<group>"; };
 		94D8D00DBF0B5E26FB2B9786 /* RentPayment.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RentPayment.swift; sourceTree = "<group>"; };
 		95E4835CBDF4D7980F1E9EEA /* DocumentListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentListView.swift; sourceTree = "<group>"; };
+		96299BB4EEECA270DA251156 /* BackgroundWork.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BackgroundWork.swift; sourceTree = "<group>"; };
 		968E6A5D6BD88A38D5AB50A0 /* PropertyDocumentScanReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PropertyDocumentScanReviewView.swift; sourceTree = "<group>"; };
 		96E870554D07A8A7962B5366 /* PreviewData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PreviewData.swift; sourceTree = "<group>"; };
 		9B0037A9A281C32343AE789F /* Document.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Document.swift; sourceTree = "<group>"; };
+		9C0F968327EF54DF48BB2B7C /* LineItemImportModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineItemImportModifier.swift; sourceTree = "<group>"; };
 		9EBB187094A175B457A641A6 /* MietverwaltungApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MietverwaltungApp.swift; sourceTree = "<group>"; };
 		9EF11AD2D0E4FB8A87BAAA95 /* ThreeYearThresholdCase.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThreeYearThresholdCase.swift; sourceTree = "<group>"; };
 		A072D6382844CB1C86A5EE87 /* AddDocumentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AddDocumentView.swift; sourceTree = "<group>"; };
+		A0C90CF322CEC50BA670370E /* RemindersEngineTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RemindersEngineTests.swift; sourceTree = "<group>"; };
 		A3624FB55BF4841FC0A8326D /* LineItemImportReviewView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineItemImportReviewView.swift; sourceTree = "<group>"; };
+		A8C9E922AB6277172671EF07 /* PortfolioAndReceiptTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioAndReceiptTests.swift; sourceTree = "<group>"; };
 		A8F6CFF3B0D6787E87FAE158 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		AC2CE05945DC9DFD4404BCA4 /* AppSchema.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppSchema.swift; sourceTree = "<group>"; };
 		B1182877833E8B37E6A858D2 /* CSVImporterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CSVImporterTests.swift; sourceTree = "<group>"; };
+		B538BCD0C886EC4CB7FEC8CF /* NotificationScheduler.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NotificationScheduler.swift; sourceTree = "<group>"; };
 		B54988AD6535AE686A6B26DA /* UtilityStatementDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtilityStatementDetailView.swift; sourceTree = "<group>"; };
 		B704F83BB3F5986B7E6B6A17 /* GesamtuebersichtReportDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GesamtuebersichtReportDocument.swift; sourceTree = "<group>"; };
 		B7F171D1107AEDF464479133 /* TaxModulePropertyView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxModulePropertyView.swift; sourceTree = "<group>"; };
@@ -290,21 +355,49 @@
 		C091634DFD8D185EBD17AAFE /* TaxChecklistItem.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxChecklistItem.swift; sourceTree = "<group>"; };
 		C0F9B248F91EB9AA8801723E /* HomeOfficeAllocation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HomeOfficeAllocation.swift; sourceTree = "<group>"; };
 		C1C2757D5A16A572738ECD4B /* ExpenseEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExpenseEditView.swift; sourceTree = "<group>"; };
+		C26031500A408CD587CE65DD /* RentIncreaseAdvisor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RentIncreaseAdvisor.swift; sourceTree = "<group>"; };
+		C52FEFC2D10BEE8EAB24556E /* DocumentFolder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DocumentFolder.swift; sourceTree = "<group>"; };
 		C8BA665915E9375E47FF9D05 /* CSVImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CSVImporter.swift; sourceTree = "<group>"; };
 		C95D2177263AF503DEBC4C42 /* Components.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Components.swift; sourceTree = "<group>"; };
+		C9E44C0C3D2915F5B3BB03CA /* LineItemFileImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineItemFileImporter.swift; sourceTree = "<group>"; };
 		CA8E6E9F5BB1CE5D76ED08DF /* PropertyDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PropertyDetailView.swift; sourceTree = "<group>"; };
 		CB4BE5F2F31D58F8E5A6D1F6 /* Tenant.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tenant.swift; sourceTree = "<group>"; };
+		CF109A05CC3B02000E4F919F /* XLSXImporterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XLSXImporterTests.swift; sourceTree = "<group>"; };
+		D2052E316BFC6C57EFF2C2A0 /* UtilityAllocationCalculatorTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UtilityAllocationCalculatorTests.swift; sourceTree = "<group>"; };
 		D8C8388E3E1610A1ABD42677 /* Theme.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Theme.swift; sourceTree = "<group>"; };
 		D8EF6EDB92DFA0BA0CF993E6 /* LandlordEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LandlordEditView.swift; sourceTree = "<group>"; };
+		DA48550870CE2D2873CE4518 /* PortfolioMetrics.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortfolioMetrics.swift; sourceTree = "<group>"; };
 		E0821FAED454E3B716EB03D7 /* LandlordView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LandlordView.swift; sourceTree = "<group>"; };
 		E4B84E24783A7FAA45A0AFE9 /* TaxGlossaryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxGlossaryView.swift; sourceTree = "<group>"; };
 		E8FDF70AF40E6126A31762EC /* TenantEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TenantEditView.swift; sourceTree = "<group>"; };
 		E909935DAD808EDFFC0FF3B5 /* TaxCalculationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxCalculationTests.swift; sourceTree = "<group>"; };
 		EA531BE01BFD6FCFF36F92BF /* TaxChecklistSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxChecklistSeeder.swift; sourceTree = "<group>"; };
 		EF7ECBB45465974178902443 /* DashboardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DashboardView.swift; sourceTree = "<group>"; };
+		EF9B50BE722C2961AB9E7AE8 /* OwnersMeetingEvent.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OwnersMeetingEvent.swift; sourceTree = "<group>"; };
+		F3B07B6EFF9602FFFDBE4C0A /* ModelIntegrityTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ModelIntegrityTests.swift; sourceTree = "<group>"; };
 		F6202E7D09C7E844AB24E845 /* TenancyEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TenancyEditView.swift; sourceTree = "<group>"; };
 		F9BB587E616A593575531EB2 /* DepreciableAssetEditView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DepreciableAssetEditView.swift; sourceTree = "<group>"; };
+		FCD37386F4D459FE0866F2F3 /* ExportFile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportFile.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		10D7775F4651AF1C93A8D7EF /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				08F107F610983A301C17FEF9 /* ZIPFoundation in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		9D4BA2085916556485523264 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				05152EA280D7FBD68E5008A7 /* ZIPFoundation in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		032B06F6BFB573DAEB64AC48 = {
@@ -375,12 +468,13 @@
 		3B5411B1920583860C4067FE /* Properties */ = {
 			isa = PBXGroup;
 			children = (
+				4383B4909A098895B0D84BDE /* AssetReportDocument.swift */,
 				F9BB587E616A593575531EB2 /* DepreciableAssetEditView.swift */,
 				490E060E57B19E91F2D11DA0 /* FlowBadges.swift */,
 				2AF7D7589573127CCDA0DE21 /* GebaeudeAfaReportDocument.swift */,
 				15189EADC2B405B6DC00E191 /* HerstellungskostenListView.swift */,
 				7B1289034BAEB2F9862F9C1D /* MoeblierungListView.swift */,
-				896CDDF42ECA7F4BB2DF7523 /* MoeblierungReportDocument.swift */,
+				3D22F6A68EA9BD09D6D643D0 /* OwnersMeetingEditView.swift */,
 				CA8E6E9F5BB1CE5D76ED08DF /* PropertyDetailView.swift */,
 				968E6A5D6BD88A38D5AB50A0 /* PropertyDocumentScanReviewView.swift */,
 				2E22DAA89E8CEB868DC69E02 /* PropertyEditView.swift */,
@@ -392,6 +486,7 @@
 				5210130F5057935FE97B8683 /* TilgungsplanReportDocument.swift */,
 				6BA3A9D4C2FBEEE22CFC82B8 /* UnitDetailView.swift */,
 				4D33FD71E5A59290F02FFE14 /* UnitEditView.swift */,
+				31023ACFFF379BF047C00632 /* WirtschaftsberichtDocument.swift */,
 			);
 			path = Properties;
 			sourceTree = "<group>";
@@ -399,26 +494,37 @@
 		4FD9B9A4842AF1145BACC590 /* Support */ = {
 			isa = PBXGroup;
 			children = (
+				96299BB4EEECA270DA251156 /* BackgroundWork.swift */,
+				320712B3D95931983E4D95A9 /* CalendarEventManager.swift */,
 				C95D2177263AF503DEBC4C42 /* Components.swift */,
 				C8BA665915E9375E47FF9D05 /* CSVImporter.swift */,
+				262BD2A2F05BEF9E4A0C59B3 /* DecimalInputParser.swift */,
 				52EF6FE5946D5BFCBE6B2B20 /* DemoSeeder.swift */,
 				24E214074D6DE94F4443707E /* DocumentCameraScanner.swift */,
+				FCD37386F4D459FE0866F2F3 /* ExportFile.swift */,
 				1C3D585BAF64CAEA2275932E /* Formatters.swift */,
+				256957E562A4C33E14757FB7 /* FormValidation.swift */,
 				C0F9B248F91EB9AA8801723E /* HomeOfficeAllocation.swift */,
 				54884C5C52A790E58AD5B9AA /* LineItemDraft.swift */,
+				C9E44C0C3D2915F5B3BB03CA /* LineItemFileImporter.swift */,
+				7E9A0DEE785874E91219AE85 /* LineItemRowParser.swift */,
 				21333D1B53A1F58D28BBE7E9 /* LineItemsEditor.swift */,
+				B538BCD0C886EC4CB7FEC8CF /* NotificationScheduler.swift */,
 				2C780F8B8F91C5CFA932D0BF /* OCRTextRecognizer.swift */,
 				3A987A5326CB85267CEA9A7E /* PDFExporter.swift */,
+				DA48550870CE2D2873CE4518 /* PortfolioMetrics.swift */,
 				96E870554D07A8A7962B5366 /* PreviewData.swift */,
 				69FB62FDADFA923F25EB2921 /* PropertyDocumentOCR.swift */,
 				74A621B0517D0F1C9490DC21 /* ReceiptOCR.swift */,
 				7BAB38F6D448CF9A8902B9A7 /* ReceiptTextExtractor.swift */,
 				942B2D4AFC75FAD97D91A909 /* RemindersEngine.swift */,
+				C26031500A408CD587CE65DD /* RentIncreaseAdvisor.swift */,
 				EA531BE01BFD6FCFF36F92BF /* TaxChecklistSeeder.swift */,
-				5C3316E611F57E0281BAD5ED /* TaxReportLayoutStyle.swift */,
 				BDDD89E2F999F4FC9E463CE0 /* TaxReportPDFBuilder.swift */,
 				D8C8388E3E1610A1ABD42677 /* Theme.swift */,
+				51065A26503889728087727C /* UtilityAllocationCalculator.swift */,
 				315AC0BA58663C43481DD6AC /* XLSXExporter.swift */,
+				310F5F2F3706A1F23685512D /* XLSXImporter.swift */,
 			);
 			path = Support;
 			sourceTree = "<group>";
@@ -427,6 +533,7 @@
 			isa = PBXGroup;
 			children = (
 				A072D6382844CB1C86A5EE87 /* AddDocumentView.swift */,
+				7536EB2BA62C85A823557D71 /* DocumentCategoryView.swift */,
 				95E4835CBDF4D7980F1E9EEA /* DocumentListView.swift */,
 			);
 			path = Documents;
@@ -448,6 +555,7 @@
 			isa = PBXGroup;
 			children = (
 				B704F83BB3F5986B7E6B6A17 /* GesamtuebersichtReportDocument.swift */,
+				9C0F968327EF54DF48BB2B7C /* LineItemImportModifier.swift */,
 				A3624FB55BF4841FC0A8326D /* LineItemImportReviewView.swift */,
 				82627A9955CB9F9673DB184A /* NebenkostenabrechnungDocument.swift */,
 				B54988AD6535AE686A6B26DA /* UtilityStatementDetailView.swift */,
@@ -483,16 +591,21 @@
 			isa = PBXGroup;
 			children = (
 				61223BEB3DB609036DF3D621 /* AllocationMethod.swift */,
+				AC2CE05945DC9DFD4404BCA4 /* AppSchema.swift */,
 				5C3899F99749AD800F2D8BE2 /* CapitalizationDecision.swift */,
 				33A3D466B361996A66581AF7 /* DepreciableAsset.swift */,
 				9B0037A9A281C32343AE789F /* Document.swift */,
+				C52FEFC2D10BEE8EAB24556E /* DocumentFolder.swift */,
 				1A18CB032EF40EF18EEF55BC /* Expense.swift */,
 				80A7F9C62A1DABBD938877D9 /* HomeOfficeEntry.swift */,
 				273489321C191D707E1A0BD7 /* Landlord.swift */,
+				EF9B50BE722C2961AB9E7AE8 /* OwnersMeetingEvent.swift */,
 				8A32E6E3456268E2347615D5 /* Property.swift */,
 				17AF740F462DDEDB9C3088A2 /* RemainingUsefulLifeAppraisal.swift */,
 				94D8D00DBF0B5E26FB2B9786 /* RentPayment.swift */,
+				0A157B91AA92C940A8E13C9A /* RentStep.swift */,
 				C091634DFD8D185EBD17AAFE /* TaxChecklistItem.swift */,
+				92921BA7771FC36424C9640E /* TaxFilingStatus.swift */,
 				0094C18CB898C16BDEAD83D7 /* TaxTreatment.swift */,
 				5845FDF7EBB418C15207892C /* Tenancy.swift */,
 				CB4BE5F2F31D58F8E5A6D1F6 /* Tenant.swift */,
@@ -529,8 +642,14 @@
 			isa = PBXGroup;
 			children = (
 				B1182877833E8B37E6A858D2 /* CSVImporterTests.swift */,
+				51617ACAD12CA0D3811DB09B /* DecimalInputParserTests.swift */,
+				F3B07B6EFF9602FFFDBE4C0A /* ModelIntegrityTests.swift */,
+				A8C9E922AB6277172671EF07 /* PortfolioAndReceiptTests.swift */,
+				A0C90CF322CEC50BA670370E /* RemindersEngineTests.swift */,
 				E909935DAD808EDFFC0FF3B5 /* TaxCalculationTests.swift */,
 				182E6CC7EB429331BC0F98F3 /* TaxReportPDFBuilderTests.swift */,
+				D2052E316BFC6C57EFF2C2A0 /* UtilityAllocationCalculatorTests.swift */,
+				CF109A05CC3B02000E4F919F /* XLSXImporterTests.swift */,
 			);
 			path = Tests;
 			sourceTree = "<group>";
@@ -556,6 +675,7 @@
 			buildPhases = (
 				E141CBD00506942AB2E125A4 /* Sources */,
 				0C17DCF3E75A40E668B7CF95 /* Resources */,
+				10D7775F4651AF1C93A8D7EF /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -563,6 +683,7 @@
 			);
 			name = "Mietverwaltung-iOS";
 			packageProductDependencies = (
+				D78EF18A4A6B81844E7CA3F1 /* ZIPFoundation */,
 			);
 			productName = "Mietverwaltung-iOS";
 			productReference = 0841980819EB3B8999FC094C /* Mietverwaltung-iOS.app */;
@@ -592,6 +713,7 @@
 			buildPhases = (
 				C2D4E48F3E843A2937720A09 /* Sources */,
 				195342E01F9646D4C4776287 /* Resources */,
+				9D4BA2085916556485523264 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -599,6 +721,7 @@
 			);
 			name = "Mietverwaltung-macOS";
 			packageProductDependencies = (
+				9094A2DD8D827F2F8C1A7696 /* ZIPFoundation */,
 			);
 			productName = "Mietverwaltung-macOS";
 			productReference = 5318A62A7AE23B7B08947B21 /* Mietverwaltung-macOS.app */;
@@ -633,6 +756,9 @@
 			);
 			mainGroup = 032B06F6BFB573DAEB64AC48;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				63F4D5186292A3DDC602A6B2 /* XCRemoteSwiftPackageReference "ZIPFoundation" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 11A664FFC15CC985EA75EADA /* Products */;
 			projectDirPath = "";
@@ -671,8 +797,14 @@
 			buildActionMask = 2147483647;
 			files = (
 				A5DDC65FEB5EFBC5E48ED85C /* CSVImporterTests.swift in Sources */,
+				0E03985B039B0DFAAF0D0ED6 /* DecimalInputParserTests.swift in Sources */,
+				EC5E8A46D6FB8EC2BA1F0A96 /* ModelIntegrityTests.swift in Sources */,
+				A5294E9B1C53019F203A6307 /* PortfolioAndReceiptTests.swift in Sources */,
+				3F2E1C2489ED7CF0F105B993 /* RemindersEngineTests.swift in Sources */,
 				42AF321F954E61A91BFD5877 /* TaxCalculationTests.swift in Sources */,
 				6BB1E8F9BBEBC3CF026B2DC0 /* TaxReportPDFBuilderTests.swift in Sources */,
+				2E1FE692B4A74501579A3204 /* UtilityAllocationCalculatorTests.swift in Sources */,
+				F9A010A90B53D92F11DDF2E3 /* XLSXImporterTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -683,23 +815,32 @@
 				DDEB092AC336BF7D43F52F61 /* AddDocumentView.swift in Sources */,
 				9065B317B9375C26D89FBF33 /* AddYearView.swift in Sources */,
 				A46561ED1BDCC84CA81A892F /* AllocationMethod.swift in Sources */,
+				276C552E1F07DD1D0AF5F19A /* AppSchema.swift in Sources */,
 				2FF325C36B2822E53CF10E86 /* AppearanceSettingsView.swift in Sources */,
+				73EBFF6EDC515ED114A927BC /* AssetReportDocument.swift in Sources */,
+				AE9A9B6A9C544959811CC325 /* BackgroundWork.swift in Sources */,
 				85537819AC9D8694A4FF6253 /* CSVImporter.swift in Sources */,
+				49236F2F38867345CE8493AC /* CalendarEventManager.swift in Sources */,
 				42CD801ADFECFBB415847FB0 /* CapitalizationDecision.swift in Sources */,
 				E3C970D785D1F3EF16357F27 /* Components.swift in Sources */,
 				AA36F70AA5E4EF5610D8579B /* ContentView.swift in Sources */,
 				D81999E6F34ACE3D64D16F62 /* DashboardView.swift in Sources */,
+				D4A3EDC5B10ED00486212FB7 /* DecimalInputParser.swift in Sources */,
 				B605A390F350E7D023589376 /* DemoSeeder.swift in Sources */,
 				E3970B41FD69FB778E801780 /* DepreciableAsset.swift in Sources */,
 				2DA96C612D423DD6F906A0FC /* DepreciableAssetEditView.swift in Sources */,
 				C41C876D7C8C84AC3CD3C88C /* Document.swift in Sources */,
 				BC88F8698FD467E27CF4594C /* DocumentCameraScanner.swift in Sources */,
+				4B8F039069594281C3A40D2E /* DocumentCategoryView.swift in Sources */,
+				E48BAAF8E37897ECFA29D945 /* DocumentFolder.swift in Sources */,
 				267E0465061F056D26965ED9 /* DocumentListView.swift in Sources */,
 				4BC820678D82F966DAC32732 /* Expense.swift in Sources */,
 				86E65C7F926C37E308DD0A58 /* ExpenseEditView.swift in Sources */,
 				F4883E7C7AFCF12E26B1DF4A /* ExpenseListView.swift in Sources */,
 				9102379684E7FA7225491F22 /* ExpenseReportDocument.swift in Sources */,
+				0537739F8D05ECB4A160EBAF /* ExportFile.swift in Sources */,
 				875E8BEF0746AA235F425FD2 /* FlowBadges.swift in Sources */,
+				10F50CBC830C01ACFC77E752 /* FormValidation.swift in Sources */,
 				42AEB887CC675AED3791D264 /* Formatters.swift in Sources */,
 				E2B7BB49AB9F9D830AFA2987 /* GebaeudeAfaReportDocument.swift in Sources */,
 				C2DC6BA63DF31323FD77F195 /* GesamtuebersichtReportDocument.swift in Sources */,
@@ -710,15 +851,21 @@
 				436A12B95362A2F8D1A1357F /* LandlordEditView.swift in Sources */,
 				AE2E47E4760CEAA2363B0E4D /* LandlordView.swift in Sources */,
 				4CBD17DA459A758CFA34C6DB /* LineItemDraft.swift in Sources */,
+				13F8EC5EB824866F847572CB /* LineItemFileImporter.swift in Sources */,
+				7A32D115777C62FB376F4546 /* LineItemImportModifier.swift in Sources */,
 				B02F363D4EED7CC12B84A133 /* LineItemImportReviewView.swift in Sources */,
+				D5EE372A084C8D1F84E7F2D6 /* LineItemRowParser.swift in Sources */,
 				EF074E6F912C3C58E7D87128 /* LineItemsEditor.swift in Sources */,
 				3411A1C8654D360356938A24 /* MietverwaltungApp.swift in Sources */,
 				82DA57157A0D623BBAD64E8E /* MoeblierungListView.swift in Sources */,
-				222DA53D8F1E595EAE36DEE3 /* MoeblierungReportDocument.swift in Sources */,
 				3970725BF969B875FBE370DA /* NebenkostenabrechnungDocument.swift in Sources */,
+				F560CC1F7F3F1EAF645E51DB /* NotificationScheduler.swift in Sources */,
 				2FC7373A80D9A90327AE58CD /* OCRTextRecognizer.swift in Sources */,
+				615A9F1E78016E538E0FC4AE /* OwnersMeetingEditView.swift in Sources */,
+				210A2CC727A752CA90C1C167 /* OwnersMeetingEvent.swift in Sources */,
 				4D59014D1054098AA61CEE51 /* PDFExporter.swift in Sources */,
 				7F5911FCFABBF1A50C3E852C /* PaymentsOverviewView.swift in Sources */,
+				074550A0F993F948A7BBA4FA /* PortfolioMetrics.swift in Sources */,
 				807E76A28EEE1F686D37B34A /* PreviewData.swift in Sources */,
 				27FA9E6A232408C389EEC1F8 /* Property.swift in Sources */,
 				536B1624A980BF3D89683BA6 /* PropertyDetailView.swift in Sources */,
@@ -735,13 +882,15 @@
 				D90012A17FB07403A6DCBC00 /* RemainingUsefulLifeAppraisalEditView.swift in Sources */,
 				7C0A98367C3EAB1D0E02DFFF /* RemainingUsefulLifeAppraisalListView.swift in Sources */,
 				F949488A3587DECC9313498B /* RemindersEngine.swift in Sources */,
+				981B0FCE98C9F54ABFD6DED1 /* RentIncreaseAdvisor.swift in Sources */,
 				A24F8F23EEE73BAA8D903931 /* RentPayment.swift in Sources */,
+				561CE4D448FC10D2F1F06165 /* RentStep.swift in Sources */,
 				FE7A537AD3EE9C4999C79D88 /* TaxChecklistItem.swift in Sources */,
 				2C4985DA3B649DD4F57991A6 /* TaxChecklistSeeder.swift in Sources */,
+				B575E37CD9B5B35441114902 /* TaxFilingStatus.swift in Sources */,
 				02E134A7CE371B4B899A3783 /* TaxGlossaryView.swift in Sources */,
 				1CBCAB95A6FE0D795B26219B /* TaxModulePropertyView.swift in Sources */,
 				F06B427DF8CAF37B5C6F97F2 /* TaxModuleView.swift in Sources */,
-				18AD2C69063235E4240B0A8B /* TaxReportLayoutStyle.swift in Sources */,
 				F6655323346AEE5173DB6934 /* TaxReportPDFBuilder.swift in Sources */,
 				664D050B1B247C93A782A4C9 /* TaxTreatment.swift in Sources */,
 				ADCE780ACD64E72909374E41 /* Tenancy.swift in Sources */,
@@ -762,14 +911,17 @@
 				FA815E8707E9FB224AE439EC /* UnitDetailView.swift in Sources */,
 				8B9E547CB6DDE59EBB78A4AA /* UnitEditView.swift in Sources */,
 				2150D791C02C475182357602 /* UnitFeature.swift in Sources */,
+				9A2784512623338E26766D61 /* UtilityAllocationCalculator.swift in Sources */,
 				F747F9CA2F6D9EE853409CFC /* UtilityStatement.swift in Sources */,
 				EFA1EC3EB7A07A37CA2038C7 /* UtilityStatementDetailView.swift in Sources */,
 				9CDCDEC2EF6AAE76B5C9FDC8 /* UtilityStatementEditView.swift in Sources */,
 				7E04973367D1E96FB5F510C3 /* UtilityStatementListView.swift in Sources */,
+				850C053E326B7CD58468EBCF /* WirtschaftsberichtDocument.swift in Sources */,
 				1E1E368AC5B0E292757381E3 /* WirtschaftsplanDetailView.swift in Sources */,
 				D271BB854544186979EB0583 /* WirtschaftsplanEditView.swift in Sources */,
 				8D2AD17B0A4F196E89737D05 /* WirtschaftsplanStatement.swift in Sources */,
 				7C009ECEBF4F0A978E50D832 /* XLSXExporter.swift in Sources */,
+				4AD15A26D38D5B82738695D0 /* XLSXImporter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -780,23 +932,32 @@
 				5A7A236B31FD8F4BEE034F2A /* AddDocumentView.swift in Sources */,
 				F2BBFB9561C51187BF23C667 /* AddYearView.swift in Sources */,
 				E2AAAD12883B3B9F3DEC6D7A /* AllocationMethod.swift in Sources */,
+				3F198EFCA9A5D21A50452705 /* AppSchema.swift in Sources */,
 				D261D44259E2E894A4F45370 /* AppearanceSettingsView.swift in Sources */,
+				400F634B3233DD08F52A7113 /* AssetReportDocument.swift in Sources */,
+				31D8AEE919C9ED9A61757406 /* BackgroundWork.swift in Sources */,
 				BAA44ADD8583884025E2CDD2 /* CSVImporter.swift in Sources */,
+				8FBD911AAB86C406CC2AC500 /* CalendarEventManager.swift in Sources */,
 				DE39DE190B1198CBAA91C9B2 /* CapitalizationDecision.swift in Sources */,
 				E30C2C7D2532E08AEBADAA69 /* Components.swift in Sources */,
 				CB12A8CEE8B358E936E1717E /* ContentView.swift in Sources */,
 				9E80EB14813A70DC818B22F6 /* DashboardView.swift in Sources */,
+				7C32C4B3804C2AA8FC0F6C02 /* DecimalInputParser.swift in Sources */,
 				A0BECC5D291F8E714101BD12 /* DemoSeeder.swift in Sources */,
 				FC607CF2E3A70E1CBDA08084 /* DepreciableAsset.swift in Sources */,
 				219C06C195BCBDB078DD9B12 /* DepreciableAssetEditView.swift in Sources */,
 				AE9C5E386200EF0AF03CEFD9 /* Document.swift in Sources */,
 				28478387BC976E5ABD1E3D1A /* DocumentCameraScanner.swift in Sources */,
+				597F92844AA618790542F1AB /* DocumentCategoryView.swift in Sources */,
+				6F90AA84A1C5C5BA77F37FE7 /* DocumentFolder.swift in Sources */,
 				DF77592CDAFB6D8461C535FF /* DocumentListView.swift in Sources */,
 				751B84BA97FA821B245A96C7 /* Expense.swift in Sources */,
 				F267A92CC8533EFAE31A399E /* ExpenseEditView.swift in Sources */,
 				D74899A7E1005684FC292F7D /* ExpenseListView.swift in Sources */,
 				7E861604B1CD71A10300B33D /* ExpenseReportDocument.swift in Sources */,
+				72CB27471C55D0C5ADEF2227 /* ExportFile.swift in Sources */,
 				580948E48246EE2E87599813 /* FlowBadges.swift in Sources */,
+				048820B601F01950216EDA9E /* FormValidation.swift in Sources */,
 				AB3FED87E30E0542AC6A1BD3 /* Formatters.swift in Sources */,
 				7F2D6DB92407713B68BBA12F /* GebaeudeAfaReportDocument.swift in Sources */,
 				1C6CB1FFC570AE675974CA41 /* GesamtuebersichtReportDocument.swift in Sources */,
@@ -807,15 +968,21 @@
 				24D20FAC150C15D37D1FD24F /* LandlordEditView.swift in Sources */,
 				4B9223C06B4084DBD300BBD1 /* LandlordView.swift in Sources */,
 				9855EFCB6D2EB4E5E8AD3DB1 /* LineItemDraft.swift in Sources */,
+				B0FF5E13430CD1A014500708 /* LineItemFileImporter.swift in Sources */,
+				B27ACDB821E61D9F3D175B99 /* LineItemImportModifier.swift in Sources */,
 				FD08AA1CEE252CAB1E55F503 /* LineItemImportReviewView.swift in Sources */,
+				68D1950C80096181CF63794C /* LineItemRowParser.swift in Sources */,
 				EC0C89D1631A08F925F28DF4 /* LineItemsEditor.swift in Sources */,
 				D7B89A12562A68AC519B93E0 /* MietverwaltungApp.swift in Sources */,
 				5F124A281B39EA5F562D9DAA /* MoeblierungListView.swift in Sources */,
-				92809243ADDA1A07EEC2082B /* MoeblierungReportDocument.swift in Sources */,
 				518F011E31B74C46E3720C9C /* NebenkostenabrechnungDocument.swift in Sources */,
+				D7A7CC9C86D03D111AA30BD6 /* NotificationScheduler.swift in Sources */,
 				B168471DB0E38E4691C9A0C5 /* OCRTextRecognizer.swift in Sources */,
+				861DB653F8D9B7DD17664410 /* OwnersMeetingEditView.swift in Sources */,
+				144266C00578D4F0A9F39E67 /* OwnersMeetingEvent.swift in Sources */,
 				CFD0D09FAA5086B509D5663A /* PDFExporter.swift in Sources */,
 				B2D2F62334D3003F842C889C /* PaymentsOverviewView.swift in Sources */,
+				A1A8E3D2BA57779B686F5C6C /* PortfolioMetrics.swift in Sources */,
 				32762EC4EE23799B85AD1927 /* PreviewData.swift in Sources */,
 				60FF34E288A3A1147993CCA7 /* Property.swift in Sources */,
 				65E8412CE1D01EED684E14FD /* PropertyDetailView.swift in Sources */,
@@ -832,13 +999,15 @@
 				ED2A0465C317A37962A3D6DB /* RemainingUsefulLifeAppraisalEditView.swift in Sources */,
 				E04582BAD4E4D43BE6EAEC4B /* RemainingUsefulLifeAppraisalListView.swift in Sources */,
 				79A86B93A2EBED2EB4E3D0C8 /* RemindersEngine.swift in Sources */,
+				DE775DDAF161AD8B9DF4E90C /* RentIncreaseAdvisor.swift in Sources */,
 				24B2139DAE4B560AA1E557F1 /* RentPayment.swift in Sources */,
+				5C6E0C3A9DB1CAFEF06107F7 /* RentStep.swift in Sources */,
 				DA24D96C0B018ECFBB09B984 /* TaxChecklistItem.swift in Sources */,
 				28310E8D9704402C850186DF /* TaxChecklistSeeder.swift in Sources */,
+				FEE8BE0321C3DAF6E1650B58 /* TaxFilingStatus.swift in Sources */,
 				6ECB5A7B391651B757D90571 /* TaxGlossaryView.swift in Sources */,
 				BBBA6E6D76723A569C37860A /* TaxModulePropertyView.swift in Sources */,
 				51FCACA539CEDCB808A0DA24 /* TaxModuleView.swift in Sources */,
-				C1461C5009B6655DB6F8CA3D /* TaxReportLayoutStyle.swift in Sources */,
 				EF231FCC04BEA4AA12E6C3C8 /* TaxReportPDFBuilder.swift in Sources */,
 				FE08B503F2917EC96B7DEF5A /* TaxTreatment.swift in Sources */,
 				223619A072681125A71312FA /* Tenancy.swift in Sources */,
@@ -859,14 +1028,17 @@
 				CFC4E3B7D9F461E4A18AADDD /* UnitDetailView.swift in Sources */,
 				CA5390195BDD995F766E76B1 /* UnitEditView.swift in Sources */,
 				3316D2B6532D44559AA115DF /* UnitFeature.swift in Sources */,
+				DC96583E4BCD390C0A3E29B9 /* UtilityAllocationCalculator.swift in Sources */,
 				2FFF5B3890E8AE1954437A45 /* UtilityStatement.swift in Sources */,
 				3F92FFE5775900F9B9F3D2BB /* UtilityStatementDetailView.swift in Sources */,
 				CDEF873B89E93B6A2369D551 /* UtilityStatementEditView.swift in Sources */,
 				AC520C6FF53CEFC554F17B6E /* UtilityStatementListView.swift in Sources */,
+				D42FDED9901A9E64FFFC1A0E /* WirtschaftsberichtDocument.swift in Sources */,
 				298E7178B13A6E80F9DC24D9 /* WirtschaftsplanDetailView.swift in Sources */,
 				5C0BCAF8447807AD34D41B7B /* WirtschaftsplanEditView.swift in Sources */,
 				1BD9669371DCEB2834240EB3 /* WirtschaftsplanStatement.swift in Sources */,
 				8B7445EAA26FCEF03E90F09D /* XLSXExporter.swift in Sources */,
+				645374A78ACCF152724A3CE1 /* XLSXImporter.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -957,7 +1129,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "Mietverwaltung-macOS.entitlements";
 				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Wird verwendet, um Termine wie die Eigentümerversammlung als Kalendereintrag mit Erinnerung anzulegen.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -989,8 +1163,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "Mietverwaltung-iOS.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_ASSET_PATHS = Resources/PreviewContent;
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Wird verwendet, um Termine wie die Eigentümerversammlung als Kalendereintrag mit Erinnerung anzulegen.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Wird verwendet, um Belege (Rechnungen, Quittungen) direkt einzuscannen.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1072,8 +1248,10 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "Mietverwaltung-iOS.entitlements";
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				DEVELOPMENT_ASSET_PATHS = Resources/PreviewContent;
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Wird verwendet, um Termine wie die Eigentümerversammlung als Kalendereintrag mit Erinnerung anzulegen.";
 				INFOPLIST_KEY_NSCameraUsageDescription = "Wird verwendet, um Belege (Rechnungen, Quittungen) direkt einzuscannen.";
 				INFOPLIST_KEY_UILaunchScreen_Generation = YES;
 				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
@@ -1107,7 +1285,9 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = "Mietverwaltung-macOS.entitlements";
 				COMBINE_HIDPI_IMAGES = YES;
+				INFOPLIST_KEY_NSCalendarsFullAccessUsageDescription = "Wird verwendet, um Termine wie die Eigentümerversammlung als Kalendereintrag mit Erinnerung anzulegen.";
 				INFOPLIST_KEY_NSHumanReadableCopyright = "";
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -1158,6 +1338,30 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		63F4D5186292A3DDC602A6B2 /* XCRemoteSwiftPackageReference "ZIPFoundation" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/weichsel/ZIPFoundation";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.9.19;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		9094A2DD8D827F2F8C1A7696 /* ZIPFoundation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 63F4D5186292A3DDC602A6B2 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
+			productName = ZIPFoundation;
+		};
+		D78EF18A4A6B81844E7CA3F1 /* ZIPFoundation */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 63F4D5186292A3DDC602A6B2 /* XCRemoteSwiftPackageReference "ZIPFoundation" */;
+			productName = ZIPFoundation;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 510A38882B4684457029A957 /* Project object */;
 }

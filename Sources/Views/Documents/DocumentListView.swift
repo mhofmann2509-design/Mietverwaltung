@@ -13,30 +13,30 @@ struct DocumentListView: View {
     /// gruppiert, angezeigt.
     var property: Property? = nil
 
-    /// Wenn gesetzt, zeigt diese Instanz nur die Dokumente einer einzelnen Wohnung – für den
-    /// Wohnungs-Unterreiter unter Dokumentenablage.
-    var unit: Unit? = nil
+    /// Wenn gesetzt (zusammen mit `property`, ohne `folder`), zeigt diese Instanz nur Dokumente
+    /// dieses Reiters, die KEINEM Ordner zugeordnet sind – die Ordner selbst werden darüber in
+    /// `DocumentCategoryView` aufgelistet, ihre Dokumente über `folder` unten.
+    var category: DocumentCategory? = nil
 
-    /// Wenn gesetzt, zeigt diese Instanz nur Dokumente, die zu einer Nebenkostenabrechnung
-    /// gehören – für den „Abrechnungen"-Unterreiter unter Dokumentenablage.
-    var onlyUtilityStatements: Bool = false
+    /// Wenn gesetzt, zeigt diese Instanz nur die Dokumente dieses einen, vom Nutzer angelegten
+    /// Ordners – unabhängig von `category` (der Ordner bestimmt dann den Reiter).
+    var folder: DocumentFolder? = nil
 
     @State private var showingAddSheet = false
     @State private var selectedYear: Int?
     @State private var searchText = ""
 
-    private var isScoped: Bool { property != nil || unit != nil || onlyUtilityStatements }
+    private var isScoped: Bool { property != nil || category != nil || folder != nil }
 
     private var scopedDocuments: [Document] {
         var result = documents
         if let property {
             result = result.filter { $0.resolvedProperty == property }
         }
-        if let unit {
-            result = result.filter { $0.resolvedUnit == unit }
-        }
-        if onlyUtilityStatements {
-            result = result.filter { $0.utilityStatement != nil }
+        if let folder {
+            result = result.filter { $0.folder == folder }
+        } else if let category {
+            result = result.filter { $0.category == category && $0.folder == nil }
         }
         return result
     }
@@ -85,14 +85,14 @@ struct DocumentListView: View {
     }
 
     private var navigationTitleText: String {
-        if let unit {
-            return "\(unit.property?.name ?? "") · \(unit.name)"
+        if let folder {
+            return folder.name
+        }
+        if let category {
+            return category.label
         }
         if let property {
             return property.name
-        }
-        if onlyUtilityStatements {
-            return "Abrechnungen"
         }
         return "Dokumente"
     }
@@ -131,6 +131,12 @@ struct DocumentListView: View {
                     }
                 }
             }
+
+            Section {
+                EmptyView()
+            } footer: {
+                Text("Als Orientierung: Belege für die Steuererklärung mindestens bis zum Ablauf der Festsetzungsfrist aufbewahren – i.d.R. 4 Jahre nach Abgabe der jeweiligen Steuererklärung, bei grob fahrlässiger oder vorsätzlicher Steuerverkürzung deutlich länger. Keine Rechtsberatung, im Zweifel beim Steuerberater erfragen.")
+            }
         }
         .themedScrollBackground()
         .navigationTitle(navigationTitleText)
@@ -145,7 +151,7 @@ struct DocumentListView: View {
             }
         }
         .sheet(isPresented: $showingAddSheet) {
-            AddDocumentView(initialProperty: unit?.property ?? property)
+            AddDocumentView(initialProperty: property ?? folder?.property, initialCategory: folder?.category ?? category, initialFolder: folder)
         }
         .quickLookPreview($previewURL)
         .overlay {
@@ -185,12 +191,11 @@ struct DocumentListView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
-            if let url = document.temporaryFileURL {
-                ShareLink(item: url) {
-                    Image(systemName: "square.and.arrow.up")
-                }
-                .buttonStyle(.borderless)
+            let shareFile = ExportFile.document(document)
+            ShareLink(item: shareFile, preview: shareFile.preview) {
+                Image(systemName: "square.and.arrow.up")
             }
+            .buttonStyle(.borderless)
         }
         .contentShape(Rectangle())
         .onTapGesture {

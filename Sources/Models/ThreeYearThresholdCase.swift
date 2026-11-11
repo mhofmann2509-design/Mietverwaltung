@@ -71,6 +71,9 @@ final class ThreeYearThresholdCase {
     @Relationship(deleteRule: .cascade, inverse: \ThresholdExpenseAssessment.thresholdCase)
     var assessments: [ThresholdExpenseAssessment]? = []
 
+    @Relationship(deleteRule: .nullify, inverse: \CapitalizationDecision.thresholdCase)
+    var linkedCapitalizationDecisions: [CapitalizationDecision]? = []
+
     init(periodStart: Date = .now, periodEnd: Date = .now) {
         self.periodStart = periodStart
         self.periodEnd = periodEnd
@@ -100,6 +103,9 @@ final class ThreeYearThresholdCase {
     /// `assessments` in der UI aufgerufen werden (z.B. in `.onAppear`), damit neu hinzugekommene
     /// Positionen sichtbar werden.
     func ensureAssessments(context: ModelContext) {
+        for orphan in (assessments ?? []) where orphan.expense == nil {
+            context.delete(orphan)
+        }
         let existing = Set((assessments ?? []).compactMap { $0.expense?.persistentModelID })
         for expense in candidateExpenses where !existing.contains(expense.persistentModelID) {
             let assessment = ThresholdExpenseAssessment()
@@ -171,14 +177,24 @@ final class ThreeYearThresholdCase {
         Date.now > periodEnd
     }
 
-    /// Summe der Netto-Beträge noch ungeklärter Positionen (weder einbezogen noch ausgeschlossen) –
-    /// der mögliche zusätzliche Betrag, falls diese Positionen später als einzubeziehen eingestuft
-    /// werden. Getrennt von `includedNetTotal` ausgewiesen, damit die Darstellung nicht fälschlich
-    /// Sicherheit über ein Ergebnis vermittelt, das noch von offenen Positionen abhängt.
+    /// Summe der Netto-Beträge noch ungeklärter Positionen – alle, die entweder (a) noch gar nicht
+    /// eingeordnet wurden, oder (b) zwar als einzubeziehen eingestuft sind, aber mangels
+    /// Umsatzsteuersatz mit 0 € in `includedNetTotal` eingehen (siehe `missingNetAmountExpenses`).
+    /// Ohne (b) verschwindet eine bereits als „sicher“ markierte Position mit fehlendem Netto-Betrag
+    /// stillschweigend aus der angezeigten Summe, statt als offener, potenziell relevanter Betrag
+    /// sichtbar zu bleiben. Getrennt von `includedNetTotal` ausgewiesen, damit die Darstellung nicht
+    /// fälschlich Sicherheit über ein Ergebnis vermittelt, das noch von offenen Positionen abhängt.
+    /// Fehlt der Netto-Betrag (kein USt.-Satz hinterlegt), wird er aus dem Brutto-Betrag geschätzt
+    /// (19 % angenommen) – für (a) ebenso wie für (b), sonst verschwindet eine unklassifizierte
+    /// Position ohne USt.-Satz genauso lautlos wie zuvor eine bereits klassifizierte. Nur zur
+    /// Größenordnung, nicht als belastbarer Wert.
     var possibleAdditionalAmount: Double {
         candidateExpenses
-            .filter { (assessment(for: $0)?.status ?? .unclassified) == .unclassified }
-            .reduce(0) { $0 + ($1.netAmount ?? 0) }
+            .filter { expense in
+                let status = assessment(for: expense)?.status ?? .unclassified
+                return status == .unclassified || (expense.netAmount == nil && status.countsTowardThreshold)
+            }
+            .reduce(0.0) { $0 + ($1.netAmount ?? $1.amount / 1.19) }
     }
 
     /// Alle Aktivierungs-Entscheidungen (siehe `CapitalizationDecision`), die aus dieser Prüfung

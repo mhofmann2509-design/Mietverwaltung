@@ -35,15 +35,36 @@ final class Property {
     // Allgemeine Daten
     var roomCount: Int?                         // Anzahl der Zimmer (gesamt)
     var totalUnitCount: Int?                     // Anzahl der Einheiten insgesamt lt. Teilungserklärung (unabhängig von den erfassten Einheiten)
+    /// Eigentumsanteil an der Immobilie selbst in Prozent (z.B. bei Miteigentum/Erbengemeinschaft
+    /// oder beim Kauf einer einzelnen Eigentumswohnung) – aus Teilungserklärung/Kaufvertrag oder
+    /// manuell erfasst. `nil`, solange nicht erfasst, statt stillschweigend 100 % anzunehmen.
+    /// Unabhängig vom Miteigentumsanteil (MEA) einzelner `Unit`s, der die interne Umlage der
+    /// Nebenkosten auf die Wohneinheiten bestimmt.
+    var ownershipSharePercent: Double?
 
     // Kauf & Rendite
     var purchasePrice: Double = 0              // Kaufpreis
-    var purchaseAncillaryCosts: Double = 0      // Kaufnebenkosten (Grunderwerbsteuer, Notar, Makler, …)
+    var purchaseAncillaryCosts: Double = 0      // Kaufnebenkosten (Grunderwerbsteuer, Notar, Makler, …) – maßgebliche Summe für alle Berechnungen
+    /// Optionale Einzelposten der Kaufnebenkosten – rein zur transparenten Darstellung in der
+    /// AfA-Herleitung (siehe `TaxReportPDFBuilder`). Verändern `purchaseAncillaryCosts` nicht:
+    /// dieses Feld bleibt die für `totalAcquisitionCost`/`apportionedLandValue`/`buildingValue`
+    /// maßgebliche Summe, damit bestehende Berechnungen unangetastet bleiben, auch wenn die
+    /// Einzelposten hier noch nicht (vollständig) erfasst sind.
+    var purchaseTransferTaxCosts: Double = 0    // Grunderwerbsteuer
+    /// Ob die Grunderwerbsteuer bereits bezahlt wurde. Der tatsächliche Zahlungstermin ergibt
+    /// sich aus dem individuellen Steuerbescheid des Finanzamts (i.d.R. 1 Monat nach dessen
+    /// Zugang) und lässt sich nicht verlässlich aus dem Kaufdatum herleiten – daher nur als
+    /// Status erfasst, nicht als berechnete Frist, siehe `RemindersEngine`.
+    var purchaseTransferTaxPaid: Bool = false
+    var purchaseBrokerCosts: Double = 0         // Maklerkosten
+    var purchaseNotaryCosts: Double = 0         // Notarkosten
+    var purchaseLandRegistryCosts: Double = 0   // Auflassungsvormerkung / Grundbuchkosten
     var purchaseDate: Date?                     // Kaufdatum (Beurkundung lt. Kaufvertrag)
-    /// Übergang von Besitz, Nutzen und Lasten – rechtlich maßgebliches Datum für den Beginn des
-    /// Dreijahreszeitraums der 15-%-Grenze (§6 Abs. 1 Nr. 1a EStG), das vom Beurkundungsdatum
-    /// abweichen kann. Bewusst getrennt von `purchaseDate`: die bestehende Gebäude-AfA bleibt an
-    /// `purchaseDate` gekoppelt, um bereits angezeigte AfA-Werte nicht rückwirkend zu verändern.
+    /// Übergang von Besitz, Nutzen und Lasten – rechtlich maßgebliches Datum sowohl für den Beginn
+    /// des Dreijahreszeitraums der 15-%-Grenze (§6 Abs. 1 Nr. 1a EStG) als auch für den Beginn der
+    /// Gebäude-AfA (§7 EStG, siehe `afaStartDate`), das vom Beurkundungsdatum abweichen kann.
+    /// Bewusst getrennt von `purchaseDate` erfasst: Properties, bei denen nur `purchaseDate`
+    /// gepflegt ist, verhalten sich dadurch unverändert wie vor Einführung dieses Felds.
     var economicTransferDate: Date?
 
     // Steuer / AfA
@@ -74,6 +95,9 @@ final class Property {
     @Relationship(deleteRule: .cascade, inverse: \Document.property)
     var documents: [Document]? = []
 
+    @Relationship(deleteRule: .cascade, inverse: \DocumentFolder.property)
+    var documentFolders: [DocumentFolder]? = []
+
     @Relationship(deleteRule: .cascade, inverse: \DepreciableAsset.property)
     var depreciableAssets: [DepreciableAsset]? = []
 
@@ -100,6 +124,9 @@ final class Property {
 
     @Relationship(deleteRule: .cascade, inverse: \HomeOfficeEntry.property)
     var homeOfficeEntries: [HomeOfficeEntry]? = []
+
+    @Relationship(deleteRule: .cascade, inverse: \OwnersMeetingEvent.property)
+    var ownersMeetings: [OwnersMeetingEvent]? = []
 
     init(name: String = "", street: String = "", zipCode: String = "", city: String = "", notes: String = "", purchasePrice: Double = 0, purchaseAncillaryCosts: Double = 0, purchaseDate: Date? = nil, landValue: Double = 0, constructionYear: Int? = nil) {
         self.name = name
@@ -227,9 +254,16 @@ final class Property {
     }
 
     /// Das für den Beginn des Dreijahreszeitraums der 15-%-Grenze maßgebliche Datum: der
-    /// wirtschaftliche Übergang, ersatzweise das Kaufdatum. Die Gebäude-AfA bleibt davon
-    /// unberührt und verwendet weiterhin ausschließlich `purchaseDate`.
+    /// wirtschaftliche Übergang, ersatzweise das Kaufdatum.
     var thresholdPeriodStartDate: Date? {
+        afaStartDate
+    }
+
+    /// Das für den Beginn der Gebäude-AfA maßgebliche Datum: der wirtschaftliche Übergang von
+    /// Besitz, Nutzen und Lasten (§7 EStG), ersatzweise – solange nicht erfasst – das
+    /// Beurkundungsdatum laut Kaufvertrag. Properties, bei denen nur `purchaseDate` erfasst ist,
+    /// verhalten sich dadurch unverändert wie bisher.
+    var afaStartDate: Date? {
         economicTransferDate ?? purchaseDate
     }
 
@@ -242,6 +276,22 @@ final class Property {
     /// Bemessungsgrundlage, bevor sie auf Grund und Boden / Gebäude aufgeteilt wird.
     var totalAcquisitionCost: Double {
         purchasePrice + purchaseAncillaryCosts
+    }
+
+    /// `true`, sobald mindestens einer der Einzelposten (Grunderwerbsteuer/Makler/Notar/
+    /// Auflassungsvormerkung) erfasst ist – steuert, ob die AfA-Herleitung die Aufschlüsselung statt
+    /// der Summenzeile zeigt.
+    var hasItemizedAncillaryCosts: Bool {
+        purchaseTransferTaxCosts > 0 || purchaseBrokerCosts > 0 || purchaseNotaryCosts > 0 || purchaseLandRegistryCosts > 0
+    }
+
+    /// Verbleibender, nicht einzeln erfasster Teil der Kaufnebenkosten – die Differenz aus der
+    /// maßgeblichen Summe `purchaseAncillaryCosts` und den separat erfassten Einzelposten, nie
+    /// negativ. So summieren sich die in der AfA-Herleitung gezeigten Einzelpositionen immer exakt
+    /// auf `purchaseAncillaryCosts`, unabhängig davon, wie vollständig die Aufschlüsselung gepflegt
+    /// ist.
+    var purchaseOtherAncillaryCosts: Double {
+        max(0, purchaseAncillaryCosts - purchaseTransferTaxCosts - purchaseBrokerCosts - purchaseNotaryCosts - purchaseLandRegistryCosts)
     }
 
     /// Anteil von Grund und Boden am reinen Kaufpreis (0...1), aus der im Kaufvertrag bezifferten
@@ -269,26 +319,28 @@ final class Property {
         buildingValue * afaRatePercent / 100
     }
 
-    /// Gebäude-AfA für ein bestimmtes Jahr, im Kaufjahr monatsgenau anteilig.
+    /// Gebäude-AfA für ein bestimmtes Jahr, im Jahr des wirtschaftlichen Übergangs (ersatzweise
+    /// Kaufjahr) monatsgenau anteilig – siehe `afaStartDate`.
     func buildingAfA(forYear year: Int) -> Double {
         guard buildingValue > 0 else { return 0 }
-        guard let purchaseDate else { return annualBuildingAfA }
+        guard let afaStartDate else { return annualBuildingAfA }
         let calendar = Calendar.current
-        let startYear = calendar.component(.year, from: purchaseDate)
+        let startYear = calendar.component(.year, from: afaStartDate)
         guard year >= startYear else { return 0 }
         if year == startYear {
-            let monthsUsed = 13 - calendar.component(.month, from: purchaseDate)
+            let monthsUsed = 13 - calendar.component(.month, from: afaStartDate)
             return annualBuildingAfA * Double(monthsUsed) / 12
         }
         return annualBuildingAfA
     }
 
-    /// Erstes Jahr, ab dem eine kumulierte AfA sinnvoll gezählt werden kann: Kaufdatum, sonst
-    /// ersatzweise Baujahr, sonst das laufende Jahr – ohne Kaufdatum liefert `buildingAfA(forYear:)`
-    /// für jedes Jahr denselben vollen Jahresbetrag (kein Anschaffungsjahr zum Anteiligrechnen), ein
-    /// Anker ist hier also nur zum Abgrenzen der Summe nötig, nicht zur Monatsanteiligkeit.
+    /// Erstes Jahr, ab dem eine kumulierte AfA sinnvoll gezählt werden kann: Jahr des
+    /// wirtschaftlichen Übergangs (ersatzweise Kaufdatum), sonst ersatzweise Baujahr, sonst das
+    /// laufende Jahr – ohne Datum liefert `buildingAfA(forYear:)` für jedes Jahr denselben vollen
+    /// Jahresbetrag (kein Anschaffungsjahr zum Anteiligrechnen), ein Anker ist hier also nur zum
+    /// Abgrenzen der Summe nötig, nicht zur Monatsanteiligkeit.
     private var buildingAfaAccumulationStartYear: Int {
-        if let purchaseDate { return Calendar.current.component(.year, from: purchaseDate) }
+        if let afaStartDate { return Calendar.current.component(.year, from: afaStartDate) }
         return constructionYear ?? Calendar.current.component(.year, from: .now)
     }
 

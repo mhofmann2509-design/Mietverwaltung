@@ -100,7 +100,7 @@ struct PropertyDocumentScanReviewView: View {
     }
 
     private func apply() {
-        if let price = Double(purchasePriceText.replacingOccurrences(of: ",", with: ".")), price > 0 {
+        if let price = purchasePriceText.parsedDecimal, price > 0 {
             property.purchasePrice = price
         }
 
@@ -117,14 +117,14 @@ struct PropertyDocumentScanReviewView: View {
         if !location.isEmpty {
             targetUnit.name = location
         }
-        if let area = Double(totalAreaText.replacingOccurrences(of: ",", with: ".")), area > 0 {
+        if let area = totalAreaText.parsedDecimal, area > 0 {
             targetUnit.sizeSquareMeters = area
         }
-        if let share = Double(coOwnershipShareText.replacingOccurrences(of: ",", with: ".")), share > 0 {
+        if let share = coOwnershipShareText.parsedDecimal, share > 0 {
             targetUnit.coOwnershipShare = share
         }
 
-        if let furniturePrice = Double(furniturePriceText.replacingOccurrences(of: ",", with: ".")), furniturePrice > 0 {
+        if let furniturePrice = furniturePriceText.parsedDecimal, furniturePrice > 0 {
             let asset = DepreciableAsset(
                 name: furnitureLabel.isEmpty ? "Möblierung" : furnitureLabel,
                 category: .furniture,

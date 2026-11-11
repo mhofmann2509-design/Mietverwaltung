@@ -7,11 +7,23 @@ struct LineItemImportReviewView: View {
     @Environment(\.dismiss) private var dismiss
     @State var candidates: [LineItemDraft]
     let sourceDescription: String
+    var skippedRowNumbers: [Int] = []
     let onConfirm: ([LineItemDraft]) -> Void
 
     var body: some View {
         NavigationStack {
             Form {
+                if !skippedRowNumbers.isEmpty {
+                    Section {
+                        Label(
+                            "\(skippedRowNumbers.count) Zeile(n) ohne lesbare Kostenart oder lesbaren Betrag wurden übersprungen: Zeile \(skippedRowNumbers.map(String.init).joined(separator: ", ")).",
+                            systemImage: "exclamationmark.triangle.fill"
+                        )
+                        .foregroundStyle(.orange)
+                    } footer: {
+                        Text("Diese Zeilen bitte in der Datei prüfen oder unten von Hand ergänzen.")
+                    }
+                }
                 if candidates.isEmpty {
                     ContentUnavailableView(
                         "Nichts erkannt",

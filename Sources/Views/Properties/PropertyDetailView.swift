@@ -73,8 +73,11 @@ struct PropertyDetailView: View {
     @State private var documentScanResult: PropertyScanResult?
     @State private var showingPurchaseContractScanImporter = false
     @State private var purchaseContractScanResult: PurchaseContractScanResult?
+    @State private var busyMessage: String?
     @State private var documentScanErrorMessage: String?
     @State private var pdfPreviewURL: URL?
+    @State private var showingAddOwnersMeetingSheet = false
+    @State private var ownersMeetingToEdit: OwnersMeetingEvent?
 
     var body: some View {
         List {
@@ -159,6 +162,12 @@ struct PropertyDetailView: View {
         .sheet(isPresented: $showingAddUnitSheet) {
             UnitEditView(property: property, unit: nil)
         }
+        .sheet(isPresented: $showingAddOwnersMeetingSheet) {
+            OwnersMeetingEditView(property: property, meeting: nil)
+        }
+        .sheet(item: $ownersMeetingToEdit) { meeting in
+            OwnersMeetingEditView(property: property, meeting: meeting)
+        }
         .sheet(item: $statementToEdit) { statement in
             UtilityStatementEditView(property: property, statement: statement)
         }
@@ -166,6 +175,7 @@ struct PropertyDetailView: View {
             WirtschaftsplanEditView(property: property, plan: plan)
         }
         .quickLookPreview($pdfPreviewURL)
+        .busyOverlay(busyMessage)
     }
 
     /// Reiter „Übersicht“: Dokumente-Kurzlink, Stammdaten, Kauf & Rendite, Wohnfläche/Ausstattung,
@@ -210,6 +220,20 @@ struct PropertyDetailView: View {
 
                 if property.purchaseAncillaryCosts > 0 {
                     LabeledContent("Kaufnebenkosten", value: property.purchaseAncillaryCosts.asCurrency)
+                }
+                if property.hasItemizedAncillaryCosts {
+                    if property.purchaseTransferTaxCosts > 0 {
+                        LabeledContent("davon Grunderwerbsteuer", value: property.purchaseTransferTaxCosts.asCurrency)
+                    }
+                    if property.purchaseBrokerCosts > 0 {
+                        LabeledContent("davon Maklerkosten", value: property.purchaseBrokerCosts.asCurrency)
+                    }
+                    if property.purchaseNotaryCosts > 0 {
+                        LabeledContent("davon Notarkosten", value: property.purchaseNotaryCosts.asCurrency)
+                    }
+                    if property.purchaseLandRegistryCosts > 0 {
+                        LabeledContent("davon Auflassungsvormerkung", value: property.purchaseLandRegistryCosts.asCurrency)
+                    }
                 }
                 if let purchaseDate = property.purchaseDate {
                     LabeledContent("Kaufdatum", value: purchaseDate.asShortDate)
@@ -257,6 +281,57 @@ struct PropertyDetailView: View {
             } label: {
                 Label("Einheit hinzufügen", systemImage: "plus")
             }
+        }
+
+        Section("Eigentümerversammlungen") {
+            let meetings = (property.ownersMeetings ?? []).sorted { $0.date > $1.date }
+            if meetings.isEmpty {
+                Text("Noch keine Eigentümerversammlung erfasst.")
+                    .foregroundStyle(.secondary)
+            }
+            ForEach(meetings) { meeting in
+                Button {
+                    ownersMeetingToEdit = meeting
+                } label: {
+                    VStack(alignment: .leading, spacing: 2) {
+                        Text(meeting.title)
+                        HStack(spacing: Theme.spacingS) {
+                            Text(meeting.date.asShortDate)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                            if meeting.invitationDocument != nil {
+                                Image(systemName: "paperclip")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            if meeting.calendarEventIdentifier != nil {
+                                Image(systemName: "calendar")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+            .onDelete { offsets in deleteOwnersMeetings(meetings, at: offsets) }
+
+            Button {
+                ownersMeetingToEdit = nil
+                showingAddOwnersMeetingSheet = true
+            } label: {
+                Label("Eigentümerversammlung erfassen", systemImage: "plus")
+            }
+        }
+    }
+
+    private func deleteOwnersMeetings(_ meetings: [OwnersMeetingEvent], at offsets: IndexSet) {
+        for index in offsets {
+            let meeting = meetings[index]
+            if let identifier = meeting.calendarEventIdentifier {
+                CalendarEventManager.removeEvent(identifier: identifier)
+            }
+            modelContext.delete(meeting)
         }
     }
 
@@ -431,9 +506,7 @@ struct PropertyDetailView: View {
                             } label: {
                                 Label("Tilgungsplan \(String(selectedTaxYear)) monatsweise als PDF", systemImage: "doc.text.magnifyingglass")
                             }
-                            if let url = tilgungsplanXLSXURL() {
-                                ShareLink("Tilgungsplan \(String(selectedTaxYear)) als Excel-Tabelle exportieren (.xlsx)", item: url)
-                            }
+                            ExportShareLink("Tilgungsplan \(String(selectedTaxYear)) als Excel-Tabelle exportieren (.xlsx)", spreadsheet: { tilgungsplanXLSXURL() })
                         }
                     } header: {
                         Text("Finanzierung")
@@ -483,6 +556,16 @@ struct PropertyDetailView: View {
                         .foregroundStyle(monthlyCashFlow >= 0 ? Theme.statusGood : Theme.statusCritical)
                 } footer: {
                     Text("Operativer Cashflow: Kaltmiete abzüglich Barausgaben, aller Betriebskosten (umlagefähig + nicht umlagefähig) und Annuität. Freier Cashflow: wie operativ, aber ohne Abzug der umlagefähigen Betriebskosten (geht davon aus, dass sich Vorauszahlung und umlagefähige Kosten etwa ausgleichen) – bereits abzüglich der geschätzten Steuerlast, sofern ein Vermieterprofil mit Grenzsteuersatz hinterlegt ist. AfA ist nicht cash-wirksam und daher nicht enthalten.")
+                }
+
+                Section {
+                    Button {
+                        pdfPreviewURL = wirtschaftsberichtPdfURL()
+                    } label: {
+                        Label("Wirtschaftsbericht \(String(selectedTaxYear)) als PDF erstellen", systemImage: "chart.pie")
+                    }
+                } footer: {
+                    Text("Eigenständiger Jahresbericht zur Wirtschaftlichkeit (Rendite, Cashflow, Finanzierung) für Investor und Bank – keine Steuerunterlage.")
                 }
             }
         else {
@@ -598,9 +681,7 @@ struct PropertyDetailView: View {
 
         if !betriebskostenEntries.isEmpty {
             Section {
-                if let url = betriebskostenXLSXURL() {
-                    ShareLink("Betriebskosten als Excel-Tabelle exportieren (.xlsx)", item: url)
-                }
+                ExportShareLink("Betriebskosten als Excel-Tabelle exportieren (.xlsx)", spreadsheet: { betriebskostenXLSXURL() })
             } footer: {
                 Text("Abrechnung = tatsächliche Kosten der Hausverwaltung (Ist). Wirtschaftsplan = Kostenprognose für das laufende/kommende Jahr (Soll). Neue Abrechnungen/Wirtschaftspläne hochladen: unter Mietverwaltung → Nebenkostenabrechnung. Nicht umlagefähige Betriebskosten (z.B. Instandhaltungsrücklage, Verwaltergebühr) verbleiben beim Vermieter und mindern den freien Cashflow. Umlagefähige Betriebskosten werden über die Nebenkostenabrechnung auf die Mieter verteilt.")
             }
@@ -834,13 +915,7 @@ struct PropertyDetailView: View {
             rows: rows
         )
         guard let data = XLSXExporter.data(sheets: [sheet]) else { return nil }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Betriebskosten \(property.name).xlsx")
-        do {
-            try data.write(to: url, options: .atomic)
-            return url
-        } catch {
-            return nil
-        }
+        return try? ExportFileStore.write(data, fileName: "Betriebskosten \(property.name).xlsx")
     }
 
     /// Baut den mehrjährigen AfA-Verlauf (ab Anschaffung, max. 15 Jahre oder bis zum vollständigen
@@ -883,13 +958,7 @@ struct PropertyDetailView: View {
             rows: rows
         )
         guard let data = PDFExporter.renderPDF(size: GebaeudeAfaReportDocument.pageSize, content: { document }) else { return nil }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Gebäudeabschreibung \(property.name).pdf")
-        do {
-            try data.write(to: url, options: .atomic)
-            return url
-        } catch {
-            return nil
-        }
+        return try? ExportFileStore.write(data, fileName: "Gebäudeabschreibung \(property.name).pdf")
     }
 
     /// Legt die Gebäudeabschreibungs-PDF zusätzlich zum reinen Anzeigen als Dokument dieser
@@ -916,13 +985,50 @@ struct PropertyDetailView: View {
             rows: monthlyAmortizationSchedule
         )
         guard let data = PDFExporter.renderPDF(size: TilgungsplanReportDocument.pageSize, content: { document }) else { return nil }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Tilgungsplan \(String(selectedTaxYear)) \(property.name).pdf")
-        do {
-            try data.write(to: url, options: .atomic)
-            return url
-        } catch {
-            return nil
+        return try? ExportFileStore.write(data, fileName: "Tilgungsplan \(String(selectedTaxYear)) \(property.name).pdf")
+    }
+
+    /// Wirtschaftlicher Jahresbericht (Rendite, Cashflow, Finanzierung) für das gewählte
+    /// Betrachtungsjahr als PDF – ausschließlich aus bereits vorhandenen, an anderer Stelle
+    /// verwendeten `Property`-Berechnungen zusammengestellt (siehe `financeTabSections` oben).
+    @MainActor
+    private func wirtschaftsberichtPdfURL() -> URL? {
+        let breakdown = property.loanBreakdown(forYear: selectedTaxYear)
+        let cashExpenses = property.allExpenses(forYear: selectedTaxYear)
+            .filter { $0.category != .financing }
+            .reduce(0.0) { $0 + $1.amount }
+        let operatingCashCosts = cashExpenses + property.nonApportionableUtilityCosts(forYear: selectedTaxYear)
+
+        let trendYears = property.availableTaxYears
+            .filter { $0 <= selectedTaxYear }
+            .sorted()
+            .suffix(5)
+        let yearlyFigures = trendYears.map {
+            WirtschaftsberichtDocument.YearFigure(year: $0, coldRent: property.annualColdRent(forYear: $0), cashFlow: property.freeCashFlow(forYear: $0))
         }
+
+        let document = WirtschaftsberichtDocument(
+            propertyName: property.name.isEmpty ? property.address : property.name,
+            propertyAddress: property.address,
+            generatedAt: .now,
+            year: selectedTaxYear,
+            purchasePrice: property.purchasePrice,
+            coldRentAnnual: property.annualColdRent(forYear: selectedTaxYear),
+            grossYieldPercent: property.grossYieldPercent,
+            netYieldPercent: property.netYieldPercent,
+            operativeCashFlow: property.operativeCashFlow(forYear: selectedTaxYear),
+            freeCashFlow: property.freeCashFlow(forYear: selectedTaxYear),
+            freeCashFlowAfterTax: freeCashFlowAfterTax(forYear: selectedTaxYear),
+            operatingCashCosts: operatingCashCosts,
+            interest: breakdown?.interest ?? 0,
+            principal: breakdown?.principal ?? 0,
+            remainingBalance: breakdown?.remainingBalance ?? 0,
+            loanAmount: property.loanAmount,
+            interestRatePercent: property.interestRatePercent,
+            yearlyFigures: yearlyFigures
+        )
+        guard let data = PDFExporter.renderPDF(size: WirtschaftsberichtDocument.pageSize, content: { document }) else { return nil }
+        return try? ExportFileStore.write(data, fileName: "Wirtschaftsbericht \(String(selectedTaxYear)) \(property.name).pdf")
     }
 
     /// Monatsweiser Tilgungsplan für das gewählte Betrachtungsjahr als `.xlsx`-Tabelle.
@@ -936,13 +1042,7 @@ struct PropertyDetailView: View {
             rows: rows
         )
         guard let data = XLSXExporter.data(sheets: [sheet]) else { return nil }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Tilgungsplan \(String(selectedTaxYear)) \(property.name).xlsx")
-        do {
-            try data.write(to: url, options: .atomic)
-            return url
-        } catch {
-            return nil
-        }
+        return try? ExportFileStore.write(data, fileName: "Tilgungsplan \(String(selectedTaxYear)) \(property.name).xlsx")
     }
 
     private func handleDocumentScan(_ result: Result<URL, Error>) {
@@ -953,7 +1053,12 @@ struct PropertyDetailView: View {
             documentScanErrorMessage = "Die Bilddatei konnte nicht gelesen werden."
             return
         }
-        documentScanResult = PropertyDocumentOCR.recognize(from: data)
+        busyMessage = "Texterkennung läuft …"
+        Task {
+            let recognized = await BackgroundWork.run { PropertyDocumentOCR.recognize(from: data) }
+            busyMessage = nil
+            documentScanResult = recognized
+        }
     }
 
     private func handlePurchaseContractScan(_ result: Result<URL, Error>) {
@@ -964,7 +1069,12 @@ struct PropertyDetailView: View {
             documentScanErrorMessage = "Die Bilddatei konnte nicht gelesen werden."
             return
         }
-        purchaseContractScanResult = PurchaseContractOCR.recognize(from: data)
+        busyMessage = "Texterkennung läuft …"
+        Task {
+            let recognized = await BackgroundWork.run { PurchaseContractOCR.recognize(from: data) }
+            busyMessage = nil
+            purchaseContractScanResult = recognized
+        }
     }
 
     private func deleteUtilityLineItems(_ items: [UtilityCostLineItem], at offsets: IndexSet) {

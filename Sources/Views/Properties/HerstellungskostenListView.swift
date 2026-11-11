@@ -15,9 +15,11 @@ struct HerstellungskostenListView: View {
     @State private var searchText = ""
     @State private var reportYear: Int
     @State private var pdfPreviewURL: URL?
+    @State private var pendingDeletion: [DepreciableAsset] = []
     @State private var showingAddYearSheet = false
     @State private var showingReceiptScanImporter = false
     @State private var receiptScanPending: PendingReceiptScan?
+    @State private var busyMessage: String?
 
     /// Wenn gesetzt, zeigt diese Instanz nur dieses eine Anschaffungsjahr – für den
     /// Jahres-Unterreiter in der Seitenleiste. Ohne Vorgabe werden alle Jahre angezeigt.
@@ -124,13 +126,7 @@ struct HerstellungskostenListView: View {
             showCostColumn: true
         )
         guard let data = PDFExporter.renderPDF(size: AssetReportDocument.pageSize, content: { document }) else { return nil }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Herstellungskosten \(reportYear).pdf")
-        do {
-            try data.write(to: url, options: .atomic)
-            return url
-        } catch {
-            return nil
-        }
+        return try? ExportFileStore.write(data, fileName: "Herstellungskosten \(reportYear).pdf")
     }
 
     var body: some View {
@@ -209,8 +205,8 @@ struct HerstellungskostenListView: View {
                 .disabled(assets.isEmpty)
             }
             ToolbarItem(placement: .secondaryAction) {
-                if !assets.isEmpty, let url = reportURL() {
-                    ShareLink("Herstellungskosten als PDF (Steuerjahr \(String(reportYear)))", item: url)
+                if !assets.isEmpty {
+                    ExportShareLink("Herstellungskosten als PDF (Steuerjahr \(String(reportYear)))", pdf: { reportURL() })
                 }
             }
             if fixedYear == nil {
@@ -222,6 +218,19 @@ struct HerstellungskostenListView: View {
                     }
                 }
             }
+        }
+        .confirmationDialog(
+            pendingDeletion.count == 1 ? "Herstellungskosten löschen?" : "\(pendingDeletion.count) Positionen löschen?",
+            isPresented: Binding(get: { !pendingDeletion.isEmpty }, set: { if !$0 { pendingDeletion = [] } }),
+            titleVisibility: .visible
+        ) {
+            Button("Endgültig löschen", role: .destructive) {
+                pendingDeletion.forEach { DepreciableAsset.delete($0, context: modelContext) }
+                pendingDeletion = []
+            }
+            Button("Abbrechen", role: .cancel) { pendingDeletion = [] }
+        } message: {
+            Text(pendingDeletion.map(\.deletionWarning).first { $0.contains("Aktivierung") } ?? "Dieser Schritt kann nicht rückgängig gemacht werden.")
         }
         .sheet(isPresented: $showingAddSheet) {
             DepreciableAssetEditView(asset: nil)
@@ -239,6 +248,7 @@ struct HerstellungskostenListView: View {
             ReceiptScanReviewView(scanData: pending.data, scanFileExtension: pending.fileExtension, result: pending.result, fixedKind: .asset)
         }
         .quickLookPreview($pdfPreviewURL)
+        .busyOverlay(busyMessage)
         .overlay {
             if filteredAssets.isEmpty && !assets.isEmpty {
                 ContentUnavailableView.search(text: searchText)
@@ -276,9 +286,7 @@ struct HerstellungskostenListView: View {
     }
 
     private func deleteAssets(in group: [DepreciableAsset], at offsets: IndexSet) {
-        for index in offsets {
-            modelContext.delete(group[index])
-        }
+        pendingDeletion = offsets.map { group[$0] }
     }
 
     private func handleReceiptScan(_ result: Result<URL, Error>) {
@@ -290,7 +298,13 @@ struct HerstellungskostenListView: View {
             }
         }
         guard let data = try? Data(contentsOf: url) else { return }
-        receiptScanPending = PendingReceiptScan(data: data, fileExtension: url.pathExtension, result: ReceiptOCR.recognize(from: data))
+        let fileExtension = url.pathExtension
+        busyMessage = "Texterkennung läuft …"
+        Task {
+            let recognized = await BackgroundWork.run { ReceiptOCR.recognize(from: data) }
+            busyMessage = nil
+            receiptScanPending = PendingReceiptScan(data: data, fileExtension: fileExtension, result: recognized)
+        }
     }
 }
 

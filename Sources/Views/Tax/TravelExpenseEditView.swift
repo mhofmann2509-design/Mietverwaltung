@@ -35,6 +35,8 @@ struct TravelExpenseEditView: View {
                 } footer: {
                     Text("Tatsächlich gefahrene Strecke (Hin- und Rückfahrt), nicht nur die einfache Entfernung – bei nur gelegentlichen Besuchen zur Besichtigung, Verwaltung oder Instandhaltung, nicht bei dauerhafter Präsenz vor Ort.")
                 }
+
+                ValidationMessagesSection(messages: validationMessages)
             }
             .navigationTitle(isNew ? "Fahrt hinzufügen" : "Fahrt bearbeiten")
             .toolbar {
@@ -43,7 +45,7 @@ struct TravelExpenseEditView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Sichern") { save() }
-                        .disabled(kilometersText.isEmpty)
+                        .disabled(!validationMessages.isEmpty)
                 }
             }
             .onAppear(perform: loadExistingValues)
@@ -61,9 +63,16 @@ struct TravelExpenseEditView: View {
         rateText = String(entry.ratePerKilometer)
     }
 
+    private var validationMessages: [String] {
+        [
+            FormValidation.number(kilometersText, "Kilometer", .positive, required: true),
+            FormValidation.number(rateText, "€ / km", .range(0...10))
+        ].compactMap { $0 }
+    }
+
     private func save() {
-        let kilometers = Double(kilometersText.replacingOccurrences(of: ",", with: ".")) ?? 0
-        let rate = Double(rateText.replacingOccurrences(of: ",", with: ".")) ?? 0.30
+        let kilometers = kilometersText.parsedDecimal ?? 0
+        let rate = rateText.parsedDecimal ?? 0.30
 
         if let entry {
             entry.date = date

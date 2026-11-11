@@ -18,6 +18,22 @@ final class Document {
     var utilityStatement: UtilityStatement?
     var depreciableAsset: DepreciableAsset?
 
+    /// Reiter der Dokumentenablage, dem dieses Dokument zugeordnet ist – `nil`, solange nicht
+    /// explizit gesetzt, dann aus den Verknüpfungen abgeleitet (siehe `category`). Für Dokumente,
+    /// die vor Einführung der Reiter-Gliederung angelegt wurden, ergibt sich dadurch automatisch
+    /// eine sinnvolle Zuordnung, ohne eine Datenmigration zu benötigen.
+    var categoryRaw: String?
+    /// Vom Nutzer frei angelegter Unterordner innerhalb des Reiters – optional, unabhängig von
+    /// `categoryRaw` (ein Dokument kann einem Ordner zugeordnet sein, dessen eigene Kategorie dann
+    /// maßgeblich ist, siehe `category`).
+    var folder: DocumentFolder?
+
+    @Relationship(deleteRule: .nullify, inverse: \OwnersMeetingEvent.invitationDocument)
+    var ownersMeetingInvitations: [OwnersMeetingEvent]? = []
+
+    @Relationship(deleteRule: .nullify, inverse: \TaxChecklistItem.linkedDocument)
+    var linkedChecklistItems: [TaxChecklistItem]? = []
+
     init(title: String = "", fileName: String = "", fileExtension: String = "", data: Data = Data(), receiptDate: Date = .now) {
         self.title = title
         self.fileName = fileName
@@ -25,6 +41,21 @@ final class Document {
         self.data = data
         self.addedAt = .now
         self.receiptDate = receiptDate
+    }
+
+    /// Reiter der Dokumentenablage: explizit gesetzter Wert, sonst der Ordner-Reiter (falls einem
+    /// Ordner zugeordnet), sonst aus den Verknüpfungen abgeleitet (Nebenkostenabrechnung →
+    /// Nebenkostenabrechnungen; Ausgabe/Wirtschaftsgut → Rechnungen & Belege; sonst
+    /// Immobiliendokumente).
+    var category: DocumentCategory {
+        get {
+            if let categoryRaw, let explicit = DocumentCategory(rawValue: categoryRaw) { return explicit }
+            if let folder { return folder.category }
+            if utilityStatement != nil { return .utilityStatements }
+            if expense != nil || depreciableAsset != nil { return .invoicesReceipts }
+            return .propertyDocuments
+        }
+        set { categoryRaw = newValue.rawValue }
     }
 
     /// Die Immobilie, der dieses Dokument zuzuordnen ist – direkt verknüpft oder abgeleitet über
@@ -40,27 +71,11 @@ final class Document {
             ?? depreciableAsset?.property
     }
 
-    /// Die Einheit (Wohnung), der dieses Dokument zuzuordnen ist – direkt verknüpft oder
-    /// abgeleitet über Mietverhältnis oder Ausgabe. Für die wohnungsbezogene Gruppierung in der
-    /// Dokumentenablage; `nil`, wenn das Dokument nur der Immobilie insgesamt zuzuordnen ist
-    /// (z.B. eine Nebenkostenabrechnung oder ein objektweites Dokument).
-    var resolvedUnit: Unit? {
-        unit
-            ?? tenancy?.unit
-            ?? expense?.unit
-    }
-
     /// Writes the document's data to a temporary file (named like the original) so it can be
     /// shared via `ShareLink`, which needs a `URL` rather than raw `Data`.
     var temporaryFileURL: URL? {
         let safeName = fileName.isEmpty ? "Dokument.\(fileExtension.isEmpty ? "dat" : fileExtension)" : fileName
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent(safeName)
-        do {
-            try data.write(to: url, options: .atomic)
-            return url
-        } catch {
-            return nil
-        }
+        return try? ExportFileStore.write(data, fileName: safeName)
     }
 
     /// A human readable description of what this document is attached to.

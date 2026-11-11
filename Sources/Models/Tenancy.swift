@@ -1,6 +1,24 @@
 import Foundation
 import SwiftData
 
+/// Die vereinbarte Mietvertragsart – bestimmt, welche gesetzlichen Fristen/Möglichkeiten für
+/// eine Mieterhöhung gelten, siehe `RentIncreaseAdvisor`.
+enum TenancyContractType: String, Codable, CaseIterable, Identifiable {
+    case standard
+    case staffel
+    case index
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .standard: return "Standard"
+        case .staffel: return "Staffelmiete"
+        case .index: return "Indexmiete"
+        }
+    }
+}
+
 /// A rental agreement ("Mietvertrag") between a tenant and a unit.
 @Model
 final class Tenancy {
@@ -10,10 +28,29 @@ final class Tenancy {
     var utilityAdvance: Double = 0    // Nebenkostenvorauszahlung
     var deposit: Double = 0           // Kaution
     var depositReceived: Bool = false
+    /// Zeitpunkt der Kautionsrückzahlung an den Mieter nach Mietende – `nil`, solange noch nicht
+    /// zurückgezahlt. Es gibt keine feste gesetzliche Frist, die Rechtsprechung sieht i.d.R. bis
+    /// zu sechs Monate nach Mietende als übliche Obergrenze für die Abrechnung an.
+    var depositReturnedAt: Date?
     var noticePeriodMonths: Int = 3
     var occupantCount: Int = 1        // Personenzahl (für Umlageschlüssel „Nach Personenzahl“)
     var notes: String = ""
     var createdAt: Date = Date.now
+
+    var contractTypeRaw: String = TenancyContractType.standard.rawValue
+    /// Zeitpunkt der letzten Mieterhöhung auf die ortsübliche Vergleichsmiete (§ 558 BGB) –
+    /// ohne Eintrag gilt `startDate` als Referenz für die 15-Monats-Frist.
+    var lastRentIncreaseDate: Date?
+    /// Zeitpunkt der letzten Indexmietanpassung (§ 557b BGB) – ohne Eintrag gilt `startDate`
+    /// als Referenz für die 12-Monats-Frist.
+    var lastIndexAdjustmentDate: Date?
+
+    /// Zeitpunkt der Modernisierungsankündigung (§ 555c BGB) – rein informativ, die Maßnahme darf
+    /// frühestens 3 Monate danach beginnen. Optional, unabhängig von `contractType`.
+    var modernizationAnnouncedAt: Date?
+    /// Zeitpunkt des Zugangs der Mieterhöhungserklärung nach Abschluss der Modernisierung
+    /// (§ 559b BGB) – Grundlage für den Zeitpunkt, ab dem die erhöhte Miete zu entrichten ist.
+    var modernizationIncreaseDeclaredAt: Date?
 
     var unit: Unit?
     var tenant: Tenant?
@@ -27,7 +64,10 @@ final class Tenancy {
     @Relationship(deleteRule: .cascade, inverse: \UtilityStatementDispatch.tenancy)
     var statementDispatches: [UtilityStatementDispatch]? = []
 
-    init(startDate: Date = .now, endDate: Date? = nil, coldRent: Double = 0, utilityAdvance: Double = 0, deposit: Double = 0, depositReceived: Bool = false, noticePeriodMonths: Int = 3, occupantCount: Int = 1, notes: String = "") {
+    @Relationship(deleteRule: .cascade, inverse: \RentStep.tenancy)
+    var rentSteps: [RentStep]? = []
+
+    init(startDate: Date = .now, endDate: Date? = nil, coldRent: Double = 0, utilityAdvance: Double = 0, deposit: Double = 0, depositReceived: Bool = false, noticePeriodMonths: Int = 3, occupantCount: Int = 1, notes: String = "", contractType: TenancyContractType = .standard) {
         self.startDate = startDate
         self.endDate = endDate
         self.coldRent = coldRent
@@ -38,6 +78,12 @@ final class Tenancy {
         self.occupantCount = occupantCount
         self.notes = notes
         self.createdAt = .now
+        self.contractTypeRaw = contractType.rawValue
+    }
+
+    var contractType: TenancyContractType {
+        get { TenancyContractType(rawValue: contractTypeRaw) ?? .standard }
+        set { contractTypeRaw = newValue.rawValue }
     }
 
     var totalMonthlyAmount: Double {
@@ -150,5 +196,14 @@ final class Tenancy {
         let effectiveEnd = min(endDate.map { calendar.startOfDay(for: $0) } ?? periodEnd, periodEnd)
         guard effectiveEnd >= effectiveStart else { return 0 }
         return (calendar.dateComponents([.day], from: effectiveStart, to: effectiveEnd).day ?? 0) + 1
+    }
+
+    /// Tage seit Mietende, wenn eine vereinbarte Kaution nach Mietende noch nicht zurückgezahlt
+    /// wurde – `nil`, wenn das Mietverhältnis noch läuft, keine Kaution vereinbart war oder sie
+    /// bereits zurückgezahlt wurde. Grundlage für den Kautionsrückzahlungs-Hinweis in
+    /// `RemindersEngine` (keine feste gesetzliche Frist, siehe `depositReturnedAt`).
+    func daysSinceEndWithUnreturnedDeposit(today: Date = .now) -> Int? {
+        guard let endDate, deposit > 0, depositReturnedAt == nil, endDate <= today else { return nil }
+        return Calendar.current.dateComponents([.day], from: endDate, to: today).day.map { max(0, $0) }
     }
 }

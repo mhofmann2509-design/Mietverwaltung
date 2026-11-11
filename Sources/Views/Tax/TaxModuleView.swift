@@ -6,8 +6,14 @@ import SwiftData
 /// Immobilien-übergreifend gedeckelte Homeoffice-Pauschale) – bevor man in ein einzelnes Objekt
 /// wechselt (`TaxModulePropertyView`).
 struct TaxModuleView: View {
+    @Environment(\.modelContext) private var modelContext
     @Query(sort: \Property.name) private var properties: [Property]
+    @Query private var landlords: [Landlord]
+    @Query private var taxFilingStatuses: [TaxFilingStatus]
     @State private var selectedYear: Int = Calendar.current.component(.year, from: .now)
+
+    private var usesTaxAdvisor: Bool { landlords.first?.usesTaxAdvisor ?? false }
+    private var filingStatus: TaxFilingStatus? { taxFilingStatuses.first { $0.taxYear == selectedYear } }
 
     private var availableYears: [Int] {
         let years = Set(properties.flatMap { $0.availableTaxYears })
@@ -40,6 +46,7 @@ struct TaxModuleView: View {
                     .padding(.top, 40)
                 } else {
                     kpiGrid
+                    taxFilingSection
                     objectsSection
                     if homeOfficeCapExceeded {
                         objectWideNoticesSection
@@ -81,6 +88,45 @@ struct TaxModuleView: View {
                     systemImage: totalResult >= 0 ? "checkmark.circle" : "exclamationmark.circle",
                     valueColor: totalResult >= 0 ? Theme.statusGood : Theme.statusWarning
                 )
+            }
+        }
+    }
+
+    /// Abgabestatus/-frist der Steuererklärung für das gewählte Steuerjahr (§ 149 AO) –
+    /// Vermieterprofil-weit, unabhängig von einzelnen Immobilien, siehe `TaxFilingStatus`.
+    private var taxFilingSection: some View {
+        VStack(alignment: .leading, spacing: Theme.rowSpacing) {
+            Text("Steuererklärung \(String(selectedYear))")
+                .font(Theme.sectionTitleFont)
+            Theme.card {
+                VStack(alignment: .leading, spacing: Theme.spacingS) {
+                    if let status = filingStatus {
+                        LabeledContent("Frist (§ 149 AO)", value: status.effectiveDeadline(usesTaxAdvisor: usesTaxAdvisor).asShortDate)
+                        Toggle("Eingereicht", isOn: Binding(
+                            get: { status.isSubmitted },
+                            set: { status.submittedAt = $0 ? .now : nil }
+                        ))
+                        DatePicker(
+                            "Frist überschreiben",
+                            selection: Binding(
+                                get: { status.deadlineOverride ?? status.legalDeadline(usesTaxAdvisor: usesTaxAdvisor) },
+                                set: { status.deadlineOverride = $0 }
+                            ),
+                            displayedComponents: .date
+                        )
+                        if status.deadlineOverride != nil {
+                            Button("Überschreibung entfernen") { status.deadlineOverride = nil }
+                                .font(.caption)
+                        }
+                    } else {
+                        Button("Steuerjahr \(String(selectedYear)) erfassen") {
+                            modelContext.insert(TaxFilingStatus(taxYear: selectedYear))
+                        }
+                    }
+                    Text(TaxFilingStatus.deadlineCaveat)
+                        .font(.caption2)
+                        .foregroundStyle(.secondary)
+                }
             }
         }
     }

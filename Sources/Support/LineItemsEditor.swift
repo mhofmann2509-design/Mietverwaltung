@@ -8,9 +8,13 @@ extension LineItemDraft {
         items.filter { item in
             let trimmedType = item.costType.trimmingCharacters(in: .whitespaces)
             guard !trimmedType.isEmpty else { return false }
-            guard let amount = Double(item.amountText.replacingOccurrences(of: ",", with: ".")) else { return true }
+            guard let amount = item.amountText.parsedDecimal else { return true }
             return amount <= 0
         }
+    }
+
+    static func total(of items: [LineItemDraft], apportionableOnly: Bool = false) -> Double {
+        items.filter { !apportionableOnly || $0.isApportionable }.reduce(0) { $0 + ($1.amountText.parsedDecimal ?? 0) }
     }
 }
 
@@ -24,13 +28,9 @@ struct LineItemsEditor: View {
     /// z.B. „lt. Hausverwaltung“ oder „lt. Wirtschaftsplan“, für die Summenzeile.
     let totalLabel: String
 
-    private var lineItemsTotal: Double {
-        lineItems.reduce(0) { $0 + (Double($1.amountText.replacingOccurrences(of: ",", with: ".")) ?? 0) }
-    }
+    private var lineItemsTotal: Double { LineItemDraft.total(of: lineItems) }
 
-    private var apportionableTotal: Double {
-        lineItems.filter { $0.isApportionable }.reduce(0) { $0 + (Double($1.amountText.replacingOccurrences(of: ",", with: ".")) ?? 0) }
-    }
+    private var apportionableTotal: Double { LineItemDraft.total(of: lineItems, apportionableOnly: true) }
 
     private var invalidEntries: [LineItemDraft] {
         LineItemDraft.invalidEntries(in: lineItems)

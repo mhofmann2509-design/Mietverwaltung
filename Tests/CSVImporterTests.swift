@@ -71,4 +71,16 @@ final class CSVImporterTests: XCTestCase {
         XCTAssertEqual(items.count, 2)
         XCTAssertEqual(items.map(\.costType), ["Heizung", "Wasser"])
     }
+
+    func testSkippedRowsAreReportedWithLineNumbers() {
+        let result = CSVImporter.parse(from: """
+        Kostenart;Betrag
+        Heizung;100,00
+        Ohne Betrag;abc
+        ;20,00
+        Wasser;50,00
+        """)
+        XCTAssertEqual(result.items.map(\.costType), ["Heizung", "Wasser"])
+        XCTAssertEqual(result.skippedRowNumbers, [3, 4])
+    }
 }

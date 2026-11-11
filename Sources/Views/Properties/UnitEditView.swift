@@ -58,6 +58,8 @@ struct UnitEditView: View {
                     TextField("Notizen", text: $notes, axis: .vertical)
                         .lineLimit(3...6)
                 }
+
+                ValidationMessagesSection(messages: validationMessages)
             }
             .navigationTitle(isNew ? "Neue Einheit" : "Einheit bearbeiten")
             .toolbar {
@@ -66,7 +68,7 @@ struct UnitEditView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Sichern") { save() }
-                        .disabled(name.isEmpty)
+                        .disabled(!validationMessages.isEmpty)
                 }
             }
             .onAppear(perform: loadExistingValues)
@@ -111,10 +113,19 @@ struct UnitEditView: View {
         selectedFeatures = Set(unit.features)
     }
 
+    private var validationMessages: [String] {
+        [
+            FormValidation.required(name, "Bezeichnung"),
+            FormValidation.number(sizeSquareMeters, "Größe in m²"),
+            FormValidation.number(rooms, "Zimmer"),
+            FormValidation.number(coOwnershipShare, "Miteigentumsanteil")
+        ].compactMap { $0 }
+    }
+
     private func save() {
-        let size = Double(sizeSquareMeters.replacingOccurrences(of: ",", with: ".")) ?? 0
-        let roomCount = Double(rooms.replacingOccurrences(of: ",", with: ".")) ?? 0
-        let share = Double(coOwnershipShare.replacingOccurrences(of: ",", with: ".")) ?? 0
+        let size = sizeSquareMeters.parsedDecimal ?? 0
+        let roomCount = rooms.parsedDecimal ?? 0
+        let share = coOwnershipShare.parsedDecimal ?? 0
         let features = Array(selectedFeatures)
 
         if let unit {

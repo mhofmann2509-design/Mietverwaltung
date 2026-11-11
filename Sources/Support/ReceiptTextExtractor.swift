@@ -52,7 +52,7 @@ enum ReceiptTextExtractor {
         }
     }
 
-    private static func parse(lines: [String]) -> ReceiptGuess {
+    static func parse(lines: [String]) -> ReceiptGuess {
         var guess = ReceiptGuess()
         guess.title = lines.first(where: { !$0.trimmingCharacters(in: .whitespaces).isEmpty })
 
@@ -67,11 +67,7 @@ enum ReceiptTextExtractor {
             let range = NSRange(text.startIndex..., in: text)
             return amountRegex.matches(in: text, range: range).compactMap { match in
                 guard let r = Range(match.range(at: 1), in: text) else { return nil }
-                let raw = String(text[r])
-                    .replacingOccurrences(of: ".", with: "")
-                    .replacingOccurrences(of: " ", with: "")
-                    .replacingOccurrences(of: ",", with: ".")
-                return Double(raw)
+                return String(text[r]).parsedDecimal
             }
         }
 
@@ -110,7 +106,10 @@ enum ReceiptTextExtractor {
             components.day = day
             components.month = month
             components.year = year
-            if let date = Calendar.current.date(from: components), date <= Date.now {
+            if let date = Calendar.current.date(from: components),
+               Calendar.current.component(.day, from: date) == day,
+               Calendar.current.component(.month, from: date) == month,
+               date <= Date.now {
                 guess.date = date
                 break
             }

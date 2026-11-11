@@ -71,8 +71,7 @@ enum PropertyDocumentOCR {
         let nsText = text as NSString
         guard let match = regex.firstMatch(in: text, range: NSRange(location: 0, length: nsText.length)) else { return nil }
         let raw = nsText.substring(with: match.range)
-        let normalized = raw.replacingOccurrences(of: ".", with: "").replacingOccurrences(of: ",", with: ".")
-        return Double(normalized)
+        return raw.parsedDecimal
     }
 
     /// Erstes Datum im Format TT.MM.JJJJ (auch mit ein-/zweistelligem Tag/Monat) in einem Text.

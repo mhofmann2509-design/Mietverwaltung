@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import UniformTypeIdentifiers
 
 struct UtilityStatementEditView: View {
     @Environment(\.modelContext) private var modelContext
@@ -11,12 +10,6 @@ struct UtilityStatementEditView: View {
     /// Überschreibt den Standardtitel „Nebenkostenabrechnung erfassen/bearbeiten“ – z.B. wenn das
     /// Formular aus dem Betriebskosten-Reiter der Immobilie heraus geöffnet wird.
     var titleOverride: String? = nil
-
-    private struct PendingImport: Identifiable {
-        let id = UUID()
-        let candidates: [LineItemDraft]
-        let sourceDescription: String
-    }
 
     /// Nur für eine neue Abrechnung: schnelle Vorbelegung von Beginn/Ende auf Jan–Dez des
     /// gewählten Jahres. Das Jahr selbst ist kein eigenes, speicherbares Feld mehr – es ergibt
@@ -31,21 +24,17 @@ struct UtilityStatementEditView: View {
     @State private var lineItems: [LineItemDraft] = [LineItemDraft(costType: "", amountText: "")]
     @State private var showingReceiptImporter = false
     @State private var showingFileImporter = false
-    @State private var pendingImport: PendingImport?
-    @State private var importErrorMessage: String?
 
     private var isNew: Bool { statement == nil }
 
-    private var apportionableTotal: Double {
-        lineItems.filter { $0.isApportionable }.reduce(0) { $0 + (Double($1.amountText.replacingOccurrences(of: ",", with: ".")) ?? 0) }
-    }
+    private var apportionableTotal: Double { LineItemDraft.total(of: lineItems, apportionableOnly: true) }
 
     private var propertyTax: Double {
-        Double(propertyTaxText.replacingOccurrences(of: ",", with: ".")) ?? 0
+        propertyTaxText.parsedDecimal ?? 0
     }
 
     private var canSave: Bool {
-        LineItemDraft.invalidEntries(in: lineItems).isEmpty
+        LineItemDraft.invalidEntries(in: lineItems).isEmpty && FormValidation.number(propertyTaxText, "Grundsteuer") == nil
     }
 
     var body: some View {
@@ -110,7 +99,7 @@ struct UtilityStatementEditView: View {
                 } header: {
                     Text("Kostenarten importieren")
                 } footer: {
-                    Text("Beleg-Foto: Kostenart und Betrag werden per Texterkennung direkt auf dem Gerät erkannt (keine Cloud). Excel-Liste: bitte zuvor als CSV exportieren (Spalten: Kostenart;Betrag;Umlagefähig). Erkannte Positionen werden vor der Übernahme zur Kontrolle angezeigt.")
+                    Text("Beleg-Foto: Kostenart und Betrag werden per Texterkennung direkt auf dem Gerät erkannt (keine Cloud). Excel/CSV-Liste (Spalten: Kostenart;Betrag;Umlagefähig): echte .xlsx-Dateien werden direkt gelesen, alternativ als CSV exportieren. Erkannte Positionen werden vor der Übernahme zur Kontrolle angezeigt.")
                 }
 
                 Section {
@@ -138,51 +127,11 @@ struct UtilityStatementEditView: View {
                 }
             }
             .onAppear(perform: loadExistingValues)
-            .fileImporter(isPresented: $showingReceiptImporter, allowedContentTypes: [.image]) { result in
-                handleReceiptImport(result)
-            }
-            .fileImporter(isPresented: $showingFileImporter, allowedContentTypes: [.commaSeparatedText, .plainText, .text]) { result in
-                handleFileImport(result)
-            }
-            .sheet(item: $pendingImport) { pending in
-                LineItemImportReviewView(candidates: pending.candidates, sourceDescription: pending.sourceDescription) { confirmed in
-                    lineItems.removeAll { $0.costType.isEmpty && $0.amountText.isEmpty }
-                    lineItems.append(contentsOf: confirmed)
-                }
-            }
-            .alert("Import fehlgeschlagen", isPresented: Binding(get: { importErrorMessage != nil }, set: { if !$0 { importErrorMessage = nil } })) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(importErrorMessage ?? "")
-            }
+            .lineItemImport(lineItems: $lineItems, showingReceiptImporter: $showingReceiptImporter, showingFileImporter: $showingFileImporter)
             #if os(macOS)
             .frame(minWidth: 520, idealWidth: 600, maxWidth: 720, minHeight: 540, idealHeight: 720, maxHeight: 860)
             #endif
         }
-    }
-
-    private func handleReceiptImport(_ result: Result<URL, Error>) {
-        guard case .success(let url) = result else { return }
-        let didStart = url.startAccessingSecurityScopedResource()
-        defer { if didStart { url.stopAccessingSecurityScopedResource() } }
-        guard let data = try? Data(contentsOf: url) else {
-            importErrorMessage = "Die Bilddatei konnte nicht gelesen werden."
-            return
-        }
-        let candidates = ReceiptOCR.recognizeLineItems(from: data)
-        pendingImport = PendingImport(candidates: candidates, sourceDescription: "aus dem gescannten Beleg")
-    }
-
-    private func handleFileImport(_ result: Result<URL, Error>) {
-        guard case .success(let url) = result else { return }
-        let didStart = url.startAccessingSecurityScopedResource()
-        defer { if didStart { url.stopAccessingSecurityScopedResource() } }
-        guard let data = try? Data(contentsOf: url), let text = String(data: data, encoding: .utf8) ?? String(data: data, encoding: .isoLatin1) else {
-            importErrorMessage = "Die Datei konnte nicht gelesen werden. Bitte als CSV exportieren (eine echte .xlsx-Datei kann nicht direkt gelesen werden)."
-            return
-        }
-        let candidates = CSVImporter.parseLineItems(from: text)
-        pendingImport = PendingImport(candidates: candidates, sourceDescription: "aus der importierten Datei")
     }
 
     private func loadExistingValues() {
@@ -236,7 +185,7 @@ struct UtilityStatementEditView: View {
 
         for draft in lineItems {
             let costType = draft.costType.trimmingCharacters(in: .whitespaces)
-            guard let amount = Double(draft.amountText.replacingOccurrences(of: ",", with: ".")), amount > 0, !costType.isEmpty else { continue }
+            guard let amount = draft.amountText.parsedDecimal, amount > 0, !costType.isEmpty else { continue }
             let lineItem = UtilityCostLineItem(costType: costType, amount: amount, isApportionable: draft.isApportionable, allocationKeyLabel: draft.allocationKeyLabel ?? "")
             lineItem.statement = target
             modelContext.insert(lineItem)

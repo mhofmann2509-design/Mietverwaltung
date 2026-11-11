@@ -3,13 +3,13 @@ import SwiftData
 import PDFKit
 
 /// Welcher der beiden getrennten Steuerreports erzeugt werden soll (siehe Auftrag Abschnitt 3,
-/// Modus A/B): die einmalige Erstanlage (Objekt-/Anschaffungsdaten, volle AfA-Herleitung,
-/// 15-%-Grenze, Möbelverzeichnis) oder der laufende Betrieb eines bestimmten Steuerjahres (Anlage V
-/// – AfA dort nur als Endbetrag, die volle Herleitung bleibt dem AfA-Bericht vorbehalten –,
-/// Erhaltungsaufwand/sonstige Werbungskosten, Belegverzeichnis, optional die 15-%-Grenze nach
-/// bewusster Nutzeraktion). Beide Reports sind reine PDF-Unterlagen fürs Finanzamt und enthalten
-/// bewusst keine Checkliste – die Vorbereitungs-Checkliste ist ein reines Bildschirm-Werkzeug in
-/// TaxModulePropertyView.
+/// Modus A/B): die einmalige Erstanlage (Anschaffungskosten/Kaufpreisaufteilung/Gebäude-AfA,
+/// bewegliche Wirtschaftsgüter, optional die 15-%-Grenze nach bewusster Nutzeraktion) oder der
+/// laufende Betrieb eines bestimmten Steuerjahres (Anlage V – AfA dort nur als Endbetrag, die volle
+/// Herleitung bleibt dem AfA-Bericht vorbehalten –, Erhaltungsaufwand/sonstige Werbungskosten,
+/// Belegverzeichnis, ebenfalls optional die 15-%-Grenze). Beide Reports sind reine PDF-Unterlagen
+/// fürs Finanzamt und enthalten bewusst keine Checkliste – die Vorbereitungs-Checkliste ist ein
+/// reines Bildschirm-Werkzeug in TaxModulePropertyView.
 enum TaxReportKind {
     case initialSetup
     case ongoing(taxYear: Int)
@@ -52,34 +52,66 @@ enum TaxReportPDFBuilder {
         let summaryLines: [String]
         let columnHeaders: [String]
         let rows: [[String]]
-        /// Optionaler Ist/Soll-Balken direkt unter den Zusammenfassungszeilen (z.B. Auslastung der
-        /// 15-%-Grenze) – derselbe `UtilizationBar`-Baustein wie im Steuer-Cockpit.
-        var progressFraction: Double? = nil
-        var progressTone: Theme.StatusTone = .neutral
-        /// Optionaler zweiter Balken direkt unter dem ersten – zeigt z.B. den Stand inklusive noch
-        /// ungeklärter Positionen, damit „bekannter" und „möglicher zusätzlicher" Betrag sichtbar
-        /// getrennt bleiben, statt eine Sicherheit vorzutäuschen, die von offenen Punkten abhängt.
-        var secondaryProgressFraction: Double? = nil
-        var secondaryProgressLabel: String? = nil
+        /// Maximale Zeilenzahl, bevor das Kapitel auf eine Folgeseite umbricht – normalerweise der
+        /// globale Standard, aber für Kapitel mit durchweg kurzen, nicht umbrechenden
+        /// Positionsbezeichnungen (z.B. die AfA-Herleitung) gezielt erhöhbar, damit sie trotz
+        /// zusätzlicher Einzelpositionen auf einer Seite bleiben, statt mechanisch nach einer für
+        /// alle Kapitel gleichen Zeilenzahl umzubrechen.
+        var rowsPerPage: Int = maxRowsPerPage
+        /// Feste Fakten-Zeilen vor den eigentlichen Tabellen (z.B. Objekt-/Anschaffungsdaten der neu
+        /// strukturierten Erstanlage-Seite 1) – jede als eigenes Label/Wert-Paar statt generischer
+        /// Position/Wert-Tabellenzeilen.
+        var headerFacts: [(label: String, value: String)] = []
+        /// Mehrere eigenständige, unterschiedlich spaltige Tabellen auf einer Seite (Abschnitte A–D
+        /// der neu strukturierten Erstanlage-Seite 1) – wenn gesetzt, werden `columnHeaders`/`rows`
+        /// ignoriert und stattdessen diese Tabellen der Reihe nach gerendert, jede mit eigenem Titel
+        /// und eigener Spaltenstruktur (z.B. die Anschaffungsnebenkosten-Tabelle mit Kostenposition/
+        /// Gesamtbetrag/Anteil Grund/Anteil Gebäude/Status neben einer einfachen Position/Wert-
+        /// Tabelle). Bricht an Tabellengrenzen auf eine Folgeseite um, nie mitten in einer Tabelle,
+        /// sobald das Zeilenbudget `rowsPerPage` überschritten würde – siehe `blockPages`.
+        var additionalTables: [(title: String, columnHeaders: [String], rows: [[String]])] = []
 
-        var pageCount: Int { max(1, Int(ceil(Double(rows.count) / Double(maxRowsPerPage)))) }
+        private var usesBlockLayout: Bool { !additionalTables.isEmpty || !headerFacts.isEmpty }
 
-        func rowsForPage(_ pageIndex: Int) -> [[String]] {
-            let start = pageIndex * maxRowsPerPage
-            guard start < rows.count else { return [] }
-            return Array(rows[start..<min(start + maxRowsPerPage, rows.count)])
+        /// Gruppiert `additionalTables`-Indizes in Seiten anhand eines groben Zeilenbudgets (jede
+        /// Tabelle zählt mit Zeilenzahl + 2 für Titel/Spaltenkopf), damit eine ungewöhnlich große
+        /// Datenmenge kontrolliert auf eine Folgeseite umbricht, statt die Seite zu überfüllen oder
+        /// eine Tabelle mittendrin abzuschneiden.
+        private var blockPages: [[Int]] {
+            var pages: [[Int]] = [[]]
+            var budget = headerFacts.count + 2
+            for (index, table) in additionalTables.enumerated() {
+                let weight = table.rows.count + 2
+                if budget + weight > rowsPerPage, !(pages.last?.isEmpty ?? true) {
+                    pages.append([])
+                    budget = 0
+                }
+                pages[pages.count - 1].append(index)
+                budget += weight
+            }
+            return pages
         }
 
-        /// Laufende Nummer, mit der die erste normale (nicht „##“-/„**“-markierte) Zeile auf dieser
-        /// Seite beginnt – für die Vorlage „Formular-Raster“, deren Nr.-Spalte über Seitenumbrüche
-        /// hinweg weiterzählt statt auf jeder Fortsetzungsseite wieder bei 1 zu beginnen.
-        func startingRowNumber(forPage pageIndex: Int) -> Int {
-            let start = min(pageIndex * maxRowsPerPage, rows.count)
-            let precedingNormalRows = rows.prefix(start).filter {
-                let first = $0.first ?? ""
-                return !first.hasPrefix("##") && !first.hasPrefix("**")
-            }
-            return precedingNormalRows.count + 1
+        var pageCount: Int {
+            guard !usesBlockLayout else { return blockPages.count }
+            return max(1, Int(ceil(Double(rows.count) / Double(rowsPerPage))))
+        }
+
+        func rowsForPage(_ pageIndex: Int) -> [[String]] {
+            guard !usesBlockLayout else { return [] }
+            let start = pageIndex * rowsPerPage
+            guard start < rows.count else { return [] }
+            return Array(rows[start..<min(start + rowsPerPage, rows.count)])
+        }
+
+        func headerFactsForPage(_ pageIndex: Int) -> [(label: String, value: String)] {
+            pageIndex == 0 ? headerFacts : []
+        }
+
+        func tablesForPage(_ pageIndex: Int) -> [(title: String, columnHeaders: [String], rows: [[String]])] {
+            let pages = blockPages
+            guard pageIndex < pages.count else { return [] }
+            return pages[pageIndex].map { additionalTables[$0] }
         }
     }
 
@@ -102,20 +134,12 @@ enum TaxReportPDFBuilder {
         }
     }
 
-    private static func toneForThresholdCaseStatus(_ status: ThresholdCaseStatus) -> Theme.StatusTone {
-        switch status {
-        case .belowThreshold, .completed: return .good
-        case .thresholdReached: return .warning
-        case .exceeded: return .critical
-        case .notConclusivelyCheckable: return .neutral
-        }
-    }
-
-    /// `includeThresholdCheck`: nur für `.ongoing` relevant – nimmt die 15-%-Grenze nur nach
-    /// bewusster Nutzeraktion in den jährlichen Report auf (siehe `TaxModulePropertyView`-Toggle
-    /// „15-%-Grenze hinzufügen"), statt sie automatisch jedes Jahr mitzuführen. `.initialSetup`
-    /// enthält sie unabhängig davon immer, `.standaloneThreshold` ist ohnehin nur dieses Kapitel.
-    static func build(property: Property, kind: TaxReportKind, includeThresholdCheck: Bool = false) -> (url: URL?, warnings: [String]) {
+    /// Die 15-%-Grenze erscheint bewusst in keinem der beiden Steuerreports (`.initialSetup`/
+    /// `.ongoing`) mehr, sondern ausschließlich im eigenständigen `.standaloneThreshold`-Bericht
+    /// (siehe `buildStandaloneThresholdReport`): die Dreijahresüberwachung muss unabhängig vom
+    /// jährlichen Anlage-V-Bericht erneut ans Finanzamt nachgereicht werden können, ohne dafür
+    /// jedes Mal den kompletten Jahresbericht neu zu erzeugen.
+    static func build(property: Property, kind: TaxReportKind) -> (url: URL?, warnings: [String]) {
         let generatedAt = Date.now
         var warnings: [String] = []
         var chapters: [Chapter] = []
@@ -139,17 +163,18 @@ enum TaxReportPDFBuilder {
         switch kind {
         case .initialSetup:
             let asOfYear = Calendar.current.component(.year, from: generatedAt)
-            add(buildObjectChapter(property: property), otherwiseWarn: "Objekt- und Anschaffungsdaten")
-            addAll(buildAfaChapters(property: property, taxYear: asOfYear), otherwiseWarn: "AfA-Herleitung")
-            addAll(buildThresholdChapters(property: property), otherwiseWarn: "15-%-Grenze")
+            add(buildInitialSetupAcquisitionChapter(property: property, taxYear: asOfYear), otherwiseWarn: "Anschaffungskosten, Kaufpreisaufteilung und Gebäude-AfA")
+            // Nur angehängt, wenn tatsächlich Herstellungskosten am Gebäude vorliegen – kein
+            // „entfällt mangels Datengrundlage"-Hinweis, da das der ganz normale, häufige Fall ist.
+            if let improvementChapter = buildImprovementAssetsChapter(property: property, taxYear: asOfYear) {
+                chapters.append(improvementChapter)
+            }
+            add(buildMovableAssetsChapter(property: property, taxYear: asOfYear), otherwiseWarn: "Abschreibung beweglicher Wirtschaftsgüter")
         case .ongoing(let taxYear):
             add(buildAnlageVChapter(property: property, taxYear: taxYear), otherwiseWarn: "Anlage V – Einnahmen und Werbungskosten")
             add(buildMaintenanceChapter(property: property, taxYear: taxYear), otherwiseWarn: "Erhaltungsaufwand und Herstellungskosten – Einzelnachweis")
             add(buildOtherExpensesChapter(property: property, taxYear: taxYear), otherwiseWarn: "Sonstige Werbungskosten – Einzelnachweis")
             add(buildDocumentsChapter(property: property, taxYear: taxYear), otherwiseWarn: "Belegverzeichnis \(String(taxYear))")
-            if includeThresholdCheck {
-                addAll(buildThresholdChapters(property: property), otherwiseWarn: "15-%-Grenze")
-            }
         case .standaloneThreshold:
             addAll(buildThresholdChapters(property: property), otherwiseWarn: "15-%-Grenze")
         case .standaloneAfa(let taxYear):
@@ -159,6 +184,25 @@ enum TaxReportPDFBuilder {
         guard !chapters.isEmpty else {
             warnings.append("Es konnte kein Kapitel erzeugt werden – keine ausreichenden Daten für diese Immobilie.")
             return (nil, warnings)
+        }
+
+        // Abschließendes Kapitel aus den bislang nur an den Aufrufer zurückgegebenen `warnings` –
+        // offene Punkte/fehlende Datengrundlagen gehören selbst in die Unterlage (Auftrag Abschnitt
+        // 3G/4F „Offene Punkte“/„Beleg- und Prüfhinweise“), nicht nur in einen Bildschirm-Hinweis.
+        if !warnings.isEmpty {
+            let title = { () -> String in
+                switch kind {
+                case .initialSetup: return "Offene Punkte und Dokumentationshinweise"
+                default: return "Beleg- und Prüfhinweise"
+                }
+            }()
+            chapters.append(Chapter(
+                title: title,
+                introLines: ["Für folgende Abschnitte lag keine ausreichende Datengrundlage vor; sie wurden ohne erfundene Werte ausgelassen und sollten ggf. in der App ergänzt werden."],
+                summaryLines: [],
+                columnHeaders: ["Hinweis"],
+                rows: warnings.map { [$0] }
+            ))
         }
 
         // Seitenzählung: Deckblatt = Seite 1, Inhaltsverzeichnis = Seite 2, danach die Kapitel.
@@ -196,13 +240,10 @@ enum TaxReportPDFBuilder {
                         title: chapter.title,
                         introLines: pageIndex == 0 ? chapter.introLines : [],
                         summaryLines: pageIndex == 0 ? chapter.summaryLines : [],
-                        progressFraction: pageIndex == 0 ? chapter.progressFraction : nil,
-                        progressTone: chapter.progressTone,
-                        secondaryProgressFraction: pageIndex == 0 ? chapter.secondaryProgressFraction : nil,
-                        secondaryProgressLabel: chapter.secondaryProgressLabel,
                         columnHeaders: chapter.columnHeaders,
                         rows: rowsForPage,
-                        startingRowNumber: chapter.startingRowNumber(forPage: pageIndex),
+                        headerFacts: chapter.headerFactsForPage(pageIndex),
+                        additionalTables: chapter.tablesForPage(pageIndex),
                         pageNumber: currentPage,
                         totalPages: totalPages
                     )
@@ -215,13 +256,8 @@ enum TaxReportPDFBuilder {
 
         guard let merged = mergePages(pageDatas) else { return (nil, warnings) }
         let safeName = (property.name.isEmpty ? property.address : property.name).replacingOccurrences(of: "/", with: "-")
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Steuerunterlagen \(safeName) – \(kind.documentTitle).pdf")
-        do {
-            try merged.write(to: url, options: .atomic)
-            return (url, warnings)
-        } catch {
-            return (nil, warnings)
-        }
+        let url = try? ExportFileStore.write(merged, fileName: "Steuerunterlagen \(safeName) – \(kind.documentTitle).pdf")
+        return (url, warnings)
     }
 
     /// Eigenständiger, fokussierter Bericht nur zur 15-%-Grenze (Ergebnisübersicht, Kostenüber-
@@ -266,18 +302,214 @@ enum TaxReportPDFBuilder {
         return String(text.prefix(maxLength - 1)) + "…"
     }
 
-    // MARK: - Kapitel: Objekt- und Anschaffungsdaten
+    // MARK: - Erstanlage, Seite 1: Anschaffungskosten, Kaufpreisaufteilung und Gebäude-AfA
 
-    private static func buildObjectChapter(property: Property) -> Chapter? {
+    /// Baut die komplette Seite 1 der Steuerlichen Erstanlage als eine Seite mit vier eigenständigen
+    /// Tabellen (A–D): Kaufpreisaufteilung, Anschaffungsnebenkosten mit Grund-/Gebäudeanteil je
+    /// Einzelposition, Herleitung der Gebäude-AfA-Bemessungsgrundlage und AfA-Methode/-Satz/-Betrag.
+    /// Bewusst ein eigener, nicht mit `.standaloneAfa`/`.ongoing` geteilter Code-Pfad (siehe Antwort
+    /// an den Nutzer): diese Struktur (Einzelaufschlüsselung mit Grund-/Gebäude-Spalten, keine
+    /// Jahresreihe) gilt ausdrücklich nur für die Erstanlage.
+    private static func buildInitialSetupAcquisitionChapter(property: Property, taxYear: Int) -> Chapter? {
         guard property.purchasePrice > 0 || property.purchaseDate != nil else { return nil }
-        var lines: [String] = []
-        lines.append("Kaufpreis: \(property.purchasePrice.asCurrency)")
-        lines.append("Kaufnebenkosten: \(property.purchaseAncillaryCosts.asCurrency)")
-        lines.append("Kaufdatum (Beurkundung): \(property.purchaseDate?.asShortDate ?? "nicht erfasst")")
-        lines.append("Wirtschaftlicher Übergang: \(property.economicTransferDate?.asShortDate ?? "nicht erfasst")")
-        if let year = property.constructionYear { lines.append("Baujahr: \(String(year))") }
-        lines.append("Grund und Boden (lt. Kaufvertrag, ohne Nebenkosten): \(property.landValue.asCurrency) (\((property.landValuePercentage * 100).asPercent))")
-        return Chapter(title: "Objekt- und Anschaffungsdaten", introLines: [], summaryLines: lines, columnHeaders: [], rows: [])
+        guard property.buildingValue > 0 else { return nil }
+
+        let headerFacts: [(label: String, value: String)] = [
+            ("Objekt", property.name.isEmpty ? property.address : property.name),
+            ("Anschrift", property.address),
+            ("Eigentumsanteil", property.ownershipSharePercent.map { $0.asPercent } ?? "100 % (Alleineigentum, keine Angabe hinterlegt)"),
+            ("Baujahr", property.constructionYear.map { String($0) } ?? "nicht erfasst"),
+            ("Notarielles Kaufvertragsdatum", property.purchaseDate?.asShortDate ?? "nicht erfasst – Prüfung erforderlich"),
+            ("Wirtschaftlicher Übergang (Besitz/Nutzen/Lasten)", property.economicTransferDate?.asShortDate ?? "nicht erfasst – Prüfung erforderlich")
+        ]
+
+        // A. Kaufpreis und Aufteilung – aus dem im Kaufvertrag bezifferten Bodenwert berechnet, kein
+        // pauschaler Prozentsatz. Ohne erfassten Bodenwert ist die Aufteilung nicht belastbar, nicht
+        // „0 % Grund" – das wird als vorläufig gekennzeichnet statt stillschweigend unterschlagen.
+        let landDataMissing = property.landValue <= 0
+        let landShareOfPrice = property.purchasePrice * property.landValuePercentage
+        let buildingShareOfPrice = property.purchasePrice - landShareOfPrice
+        var tableA: [[String]] = []
+        tableA.append(["Kaufpreis laut Kaufvertrag", property.purchasePrice.asCurrency])
+        tableA.append(["davon Anteil Grund und Boden", "\(landShareOfPrice.asCurrency) (\((property.landValuePercentage * 100).asPercent))"])
+        tableA.append(["davon Anteil Gebäude", "\(buildingShareOfPrice.asCurrency) (\(((1 - property.landValuePercentage) * 100).asPercent))"])
+        tableA.append([
+            "Angewendete Aufteilung",
+            landDataMissing
+                ? tonedCell("Bodenwert nicht erfasst – Aufteilung vorläufig, Prüfung erforderlich", .warning)
+                : "aus Kaufvertrag (Bodenwert \(property.landValue.asCurrency) von \(property.purchasePrice.asCurrency))"
+        ])
+        tableA.append(["**Summenprüfung (Grund + Gebäude = Kaufpreis)", (landShareOfPrice + buildingShareOfPrice).asCurrency])
+
+        // B. Anschaffungsnebenkosten und Zuordnung – jede erfasste Einzelposition mit ihrem Grund-/
+        // Gebäudeanteil nach derselben Aufteilung wie der Kaufpreis selbst; ein nicht einzeln
+        // aufgeschlüsselter Rest verschwindet nicht, sondern erscheint als eigene, als zu prüfen
+        // markierte Zeile.
+        let items: [(label: String, amount: Double)] = [
+            ("Grunderwerbsteuer", property.purchaseTransferTaxCosts),
+            ("Maklerprovision", property.purchaseBrokerCosts),
+            ("Notarkosten", property.purchaseNotaryCosts),
+            ("Auflassungsvormerkung (Grundbuch)", property.purchaseLandRegistryCosts)
+        ].filter { $0.amount > 0 }
+        let residual = property.purchaseOtherAncillaryCosts
+        var tableB: [[String]] = []
+        for item in items {
+            let land = item.amount * property.landValuePercentage
+            let building = item.amount - land
+            tableB.append([item.label, item.amount.asCurrency, land.asCurrency, building.asCurrency, "erfasst"])
+        }
+        if residual > 0.01 {
+            let land = residual * property.landValuePercentage
+            let building = residual - land
+            let label = items.isEmpty ? "Nebenkosten (nicht aufgeschlüsselt)" : "Weitere Nebenkosten (nicht aufgeschlüsselt)"
+            tableB.append([label, residual.asCurrency, land.asCurrency, building.asCurrency, tonedCell("zu prüfen – Aufschlüsselung ergänzen", .warning)])
+        }
+        if items.isEmpty && residual <= 0.01 {
+            tableB.append(["Keine Anschaffungsnebenkosten erfasst", 0.0.asCurrency, "–", "–", tonedCell("zu prüfen", .warning)])
+        }
+        let totalAncillaryLand = property.purchaseAncillaryCosts * property.landValuePercentage
+        let totalAncillaryBuilding = property.purchaseAncillaryCosts - totalAncillaryLand
+        tableB.append(["**Summe Nebenkosten", property.purchaseAncillaryCosts.asCurrency, totalAncillaryLand.asCurrency, totalAncillaryBuilding.asCurrency, ""])
+
+        // C. Herleitung der Gebäude-AfA-Bemessungsgrundlage – als sichtbare Summenbildung aus genau
+        // den beiden zuvor hergeleiteten Gebäudeanteilen, nicht nur als Endwert. Die beiden Summanden
+        // addieren sich rechnerisch exakt zu `buildingValue` (siehe `Property.buildingValue`), es
+        // wird also nichts doppelt gezählt oder neu berechnet.
+        var tableC: [[String]] = []
+        tableC.append(["Gebäudeanteil des Kaufpreises", buildingShareOfPrice.asCurrency])
+        tableC.append(["+ Gebäudeanteil der Anschaffungsnebenkosten", totalAncillaryBuilding.asCurrency])
+        tableC.append(["**= Gebäude-AfA-Bemessungsgrundlage", property.buildingValue.asCurrency])
+        if landDataMissing {
+            tableC.append(["Hinweis", tonedCell("Bodenwert nicht erfasst – Bemessungsgrundlage vorläufig, nicht abschließend prüfbar", .warning)])
+        }
+
+        // D. AfA-Methode, Nutzungsdauer und Jahresbetrag – ohne Jahresreihe, siehe Auftrag.
+        var tableD: [[String]] = []
+        tableD.append(["AfA-Methode", "Linear"])
+        tableD.append(["AfA-Satz", property.afaRatePercent.asPercent])
+        let usefulLifeText: String
+        switch property.afaRateSource {
+        case .appraisal:
+            if let appraisal = property.latestRemainingUsefulLifeAppraisal {
+                usefulLifeText = "\(Int(appraisal.remainingUsefulLifeYears.rounded())) Jahre lt. Restnutzungsdauergutachten vom \(appraisal.valuationDate.asShortDate)"
+            } else {
+                usefulLifeText = "nicht ermittelbar"
+            }
+        case .typisiert:
+            usefulLifeText = property.afaRatePercent > 0 ? "\(Int((100 / property.afaRatePercent).rounded())) Jahre (aus typisiertem Satz nach Baujahr)" : "nicht ermittelbar"
+        case .manual:
+            usefulLifeText = property.afaRatePercent > 0 ? "\(Int((100 / property.afaRatePercent).rounded())) Jahre (aus manuell festgelegtem Satz)" : "manuell festgelegt, keine Nutzungsdauer hinterlegt"
+        }
+        tableD.append(["Maßgebliche Nutzungsdauer", usefulLifeText])
+        // Maßgeblich ist der wirtschaftliche Übergang (Besitz/Nutzen/Lasten), ersatzweise das
+        // Kaufdatum (siehe `Property.afaStartDate`) – identisch mit dem tatsächlich für
+        // `buildingAfA(forYear:)` verwendeten Datum, damit Anzeige und Berechnung nie auseinanderlaufen.
+        let afaBeginLabel = property.economicTransferDate != nil ? "AfA-Beginn (Übergang Nutzen/Lasten)" : "AfA-Beginn (Kaufdatum, Übergang nicht erfasst)"
+        tableD.append([afaBeginLabel, property.afaStartDate?.asShortDate ?? "nicht erfasst – Prüfung erforderlich"])
+        if let afaStartDate = property.afaStartDate {
+            let calendar = Calendar.current
+            let startYear = calendar.component(.year, from: afaStartDate)
+            if taxYear == startYear {
+                let monthsUsed = 13 - calendar.component(.month, from: afaStartDate)
+                tableD.append(["Zeitanteilige Berechnung \(String(taxYear))", "Anschaffungsjahr: \(monthsUsed) von 12 Monaten berücksichtigt"])
+            }
+        } else {
+            tableD.append(["Zeitanteilige Berechnung", tonedCell("AfA-Beginn nicht erfasst – Jahresbetrag ggf. nicht zeitanteilig, Prüfung erforderlich", .warning)])
+        }
+        tableD.append(["**Jährliche Gebäude-AfA \(String(taxYear))", property.buildingAfA(forYear: taxYear).asCurrency])
+
+        let ancillaryColumns = ["Kostenposition", "Betrag", "Grund und Boden", "Gebäude", "Status"]
+
+        return Chapter(
+            title: "Anschaffungskosten, Kaufpreisaufteilung und Gebäude-AfA",
+            introLines: [],
+            summaryLines: [],
+            columnHeaders: [],
+            rows: [],
+            // Großzügiges Zeilenbudget: alle vier Tabellen sind kurz, sollen aber laut ausdrücklichem
+            // Wunsch nicht durch einen willkürlichen Seitenumbruch getrennt werden, solange sie bei
+            // gut lesbarer Schrift tatsächlich auf eine Seite passen (siehe `Chapter.blockPages`).
+            rowsPerPage: 60,
+            headerFacts: headerFacts,
+            additionalTables: [
+                ("A. KAUFPREIS UND AUFTEILUNG", ["Position", "Wert"], tableA),
+                ("B. ANSCHAFFUNGSNEBENKOSTEN UND ZUORDNUNG", ancillaryColumns, tableB),
+                ("C. HERLEITUNG DER GEBÄUDE-AFA-BEMESSUNGSGRUNDLAGE", ["Position", "Wert"], tableC),
+                ("D. GEBÄUDE-AFA: METHODE, NUTZUNGSDAUER UND JAHRESBETRAG", ["Position", "Wert"], tableD)
+            ]
+        )
+    }
+
+    // MARK: - Erstanlage, weitere Seiten: bewegliche Wirtschaftsgüter / weitere Herstellungskosten
+
+    /// Nur tatsächlich bewegliche bzw. selbstständig nutzbare Wirtschaftsgüter (Kategorien
+    /// `.furniture`/`.other`) – Herstellungskosten am Gebäude (`.improvement`) gehören fachlich nicht
+    /// hierher (siehe `buildImprovementAssetsChapter`) und würden hier eine falsche Einordnung
+    /// suggerieren. Zusätzlich ein Sicherheitshinweis, falls eine als beweglich erfasste Position
+    /// nach ihrer Bezeichnung tatsächlich eine Gebäudemaßnahme sein könnte (z.B. „Fassadendämmung"),
+    /// ohne die vorhandene Kategorisierung eigenmächtig zu überschreiben.
+    private static func buildMovableAssetsChapter(property: Property, taxYear: Int) -> Chapter? {
+        let movable = (property.depreciableAssets ?? []).filter { $0.category != .improvement }
+        guard !movable.isEmpty else { return nil }
+        let rows = movable.sorted { $0.placedInServiceDate < $1.placedInServiceDate }.map { asset -> [String] in
+            let method = asset.isImmediatelyDeductible ? "Sofortabzug (GWG)" : "linear, \(asset.usefulLifeYears) Jahre"
+            let nameLower = asset.name.lowercased()
+            let looksLikeBuildingMeasure = nameLower.contains("fassade") || nameLower.contains("dämmung")
+            let hinweis = looksLikeBuildingMeasure
+                ? tonedCell("steuerliche Einordnung zu prüfen (möglicher Gebäudebezug)", .warning)
+                : "–"
+            return [
+                asset.name,
+                asset.placedInServiceDate.asShortDate,
+                asset.depreciationBasis.asCurrency,
+                method,
+                asset.depreciation(forYear: taxYear).asCurrency,
+                belegLabel(asset.documents),
+                hinweis
+            ]
+        }
+        return Chapter(
+            title: "Abschreibung beweglicher Wirtschaftsgüter",
+            introLines: ["Enthält ausschließlich tatsächlich bewegliche bzw. selbstständig nutzbare Wirtschaftsgüter. Herstellungskosten am Gebäude (Modernisierung/Umbau) sind hier nicht enthalten, siehe vorherige Seite."],
+            summaryLines: [],
+            columnHeaders: ["Bezeichnung", "Anschaffung", "Bemessungsgrundlage", "Methode/Nutzungsdauer", "AfA \(String(taxYear))", "Beleg", "Hinweis"],
+            rows: rows
+        )
+    }
+
+    /// Wirtschaftsgüter der Kategorie `.improvement` (Herstellungskosten am Gebäude) – unabhängig
+    /// davon, ob sie aus einer `CapitalizationDecision` (15-%-Grenze) stammen oder direkt als
+    /// Modernisierung/Umbau erfasst wurden. Beide Fälle gehören fachlich zum Gebäude, nicht zu den
+    /// beweglichen Wirtschaftsgütern, und werden deshalb hier gemeinsam und vollständig ausgewiesen,
+    /// statt dass nicht-Entscheidungs-Fälle (z.B. eine manuell erfasste „Fassadendämmung") in keinem
+    /// Kapitel mehr auftauchen.
+    private static func buildImprovementAssetsChapter(property: Property, taxYear: Int) -> Chapter? {
+        let improvementAssets = (property.depreciableAssets ?? []).filter { $0.category == .improvement }
+        guard !improvementAssets.isEmpty else { return nil }
+        let decisionsByAssetID = Dictionary(uniqueKeysWithValues: (property.capitalizationDecisions ?? []).compactMap { decision -> (PersistentIdentifier, CapitalizationDecision)? in
+            guard let asset = decision.resultingAsset else { return nil }
+            return (asset.persistentModelID, decision)
+        })
+        let rows = improvementAssets.sorted { $0.placedInServiceDate < $1.placedInServiceDate }.map { asset -> [String] in
+            let decision = decisionsByAssetID[asset.persistentModelID]
+            let anlass = decision != nil ? (decision!.thresholdCase != nil ? "15-%-Grenze" : "manuell aktiviert") : "direkt erfasst"
+            let hinweis = (decision?.reason.isEmpty == false) ? decision!.reason : (asset.notes.isEmpty ? "–" : asset.notes)
+            return [
+                asset.name,
+                asset.placedInServiceDate.asShortDate,
+                asset.cost.asCurrency,
+                asset.depreciation(forYear: taxYear).asCurrency,
+                anlass,
+                hinweis
+            ]
+        }
+        return Chapter(
+            title: "Weitere Herstellungskosten am Gebäude",
+            introLines: ["Diese Maßnahmen werden als eigenes Wirtschaftsgut mit dem Gebäude-AfA-Satz abgeschrieben und erhöhen die Bemessungsgrundlage ab dem genannten Jahr – bewusst getrennt von den beweglichen Wirtschaftsgütern, um keine Doppelzählung oder Fehleinordnung entstehen zu lassen."],
+            summaryLines: [],
+            columnHeaders: ["Maßnahme", "Wirksam ab", "Kosten", "AfA \(String(taxYear))", "Anlass", "Begründung/Hinweis"],
+            rows: rows
+        )
     }
 
     // MARK: - Kapitel: AfA-Herleitung (drei Teilkapitel: Herleitung Gebäude, Jahresreihe, bewegliche Wirtschaftsgüter)
@@ -290,23 +522,51 @@ enum TaxReportPDFBuilder {
         // Grund/Gebäude-Aufteilung → AfA-Satz-Quelle → Endergebnis → Kumuliert), angelehnt an die
         // vom Nutzer beigelegte Excel-Referenz „AfA-Herleitung Gebäude – OnePager": dieselben,
         // bereits an anderer Stelle getesteten Werte, nur tabellarisch statt als Fließtext. Die
-        // Excel-Vorlage schlüsselt Anschaffungsnebenkosten in vier Einzelposten (Grunderwerbsteuer/
-        // Notar/Makler/Sonstiges) auf – das Objektmodell kennt dafür bewusst nur eine Summe
-        // (`purchaseAncillaryCosts`); eine Aufschlüsselung würde ein neues Datenfeld in einem
-        // anderen Modul erfordern und wird hier nicht übernommen (siehe Antwort an den Nutzer).
+        // Anschaffungsnebenkosten werden – wenn gepflegt – einzeln ausgewiesen (Makler/Notar/
+        // Auflassungsvormerkung, siehe `Property.purchaseBrokerCosts` u.a.); die Summe
+        // `purchaseAncillaryCosts` bleibt dabei unverändert die für Aufteilung und AfA maßgebliche
+        // Zahl, die Einzelposten sind rein zusätzliche Transparenz und müssen sich nicht vollständig
+        // zu ihr aufsummieren (Restbetrag erscheint als „Sonstige Nebenkosten").
+        let capitalizedDecisions = property.capitalizationDecisions ?? []
+        let capitalizedTotal = capitalizedDecisions.reduce(0.0) { $0 + $1.totalAmount }
+
         var afaRows: [[String]] = []
         afaRows.append(["##KAUFDATEN", ""])
-        afaRows.append(["Kaufdatum", property.purchaseDate?.asShortDate ?? "nicht erfasst"])
+        afaRows.append(["Kaufdatum (Beurkundung)", property.purchaseDate?.asShortDate ?? "nicht erfasst"])
+        if let economicTransferDate = property.economicTransferDate {
+            afaRows.append(["Übergang Nutzen und Lasten (maßgeblich für AfA-Beginn)", economicTransferDate.asShortDate])
+        }
         afaRows.append(["Kaufpreis gesamt", property.purchasePrice.asCurrency])
         afaRows.append(["Grund-und-Boden-Anteil (lt. Kaufvertrag)", (property.landValuePercentage * 100).asPercent])
 
         afaRows.append(["##ANSCHAFFUNGSNEBENKOSTEN", ""])
-        afaRows.append(["Anschaffungsnebenkosten (Summe)", property.purchaseAncillaryCosts.asCurrency])
+        if property.hasItemizedAncillaryCosts {
+            if property.purchaseBrokerCosts > 0 {
+                afaRows.append(["Maklerkosten", property.purchaseBrokerCosts.asCurrency])
+            }
+            if property.purchaseNotaryCosts > 0 {
+                afaRows.append(["Notarkosten", property.purchaseNotaryCosts.asCurrency])
+            }
+            if property.purchaseLandRegistryCosts > 0 {
+                afaRows.append(["Auflassungsvormerkung (Grundbuch)", property.purchaseLandRegistryCosts.asCurrency])
+            }
+            if property.purchaseOtherAncillaryCosts > 0.01 {
+                afaRows.append(["Sonstige Nebenkosten", property.purchaseOtherAncillaryCosts.asCurrency])
+            }
+        } else {
+            afaRows.append(["Anschaffungsnebenkosten (Summe)", property.purchaseAncillaryCosts.asCurrency])
+        }
         afaRows.append(["**Anschaffungskosten gesamt (Kaufpreis + Nebenkosten)", "**" + property.totalAcquisitionCost.asCurrency])
 
         afaRows.append(["##AUFTEILUNG GRUND UND BODEN / GEBÄUDE", ""])
         afaRows.append(["Grund und Boden, anteilig inkl. Nebenkosten", property.apportionedLandValue.asCurrency])
         afaRows.append(["**Gebäudeanteil / AfA-Bemessungsgrundlage", "**" + property.buildingValue.asCurrency])
+        if capitalizedTotal > 0 {
+            // Stichwort bewusst vorangestellt, nicht „Ggf. zzgl. …“: lange Positionsbezeichnungen
+            // werden in der Tabelle mehrzeilig umgebrochen, aber das Stichwort soll trotzdem sofort
+            // ins Auge fallen.
+            afaRows.append(["Herstellungskosten (ggf. aktiviert, siehe unten)", capitalizedTotal.asCurrency])
+        }
 
         afaRows.append(["##RESTNUTZUNGSDAUER-GUTACHTEN", ""])
         if let appraisal = property.latestRemainingUsefulLifeAppraisal {
@@ -333,15 +593,23 @@ enum TaxReportPDFBuilder {
 
         chapters.append(Chapter(
             title: "AfA-Herleitung – Gebäude",
-            introLines: ["Anschaffungsnebenkosten als Gesamtsumme (siehe Objektdaten) – die Einzelposten Grunderwerbsteuer/Notar/Makler/Sonstiges werden dort nicht getrennt erfasst."],
+            introLines: property.hasItemizedAncillaryCosts
+                ? []
+                : ["Anschaffungsnebenkosten als Gesamtsumme – eine Aufschlüsselung nach Makler/Notar/Auflassungsvormerkung kann in den Objektdaten hinterlegt werden."],
             summaryLines: [],
             columnHeaders: ["Position", "Wert"],
-            rows: afaRows
+            rows: afaRows,
+            // Bewusst höher als der Standard: alle Zeilen dieses Kapitels sind kurze Einzeiler ohne
+            // Zeilenumbruch, sodass auch mit aufgeschlüsselten Nebenkosten-Einzelposten noch deutlich
+            // mehr als die sonst übliche Zeilenzahl auf eine Seite passt – die Herleitung soll laut
+            // ausdrücklichem Wunsch nicht auf eine Folgeseite umbrechen.
+            rowsPerPage: 30
         ))
 
-        // 2 · Jahresreihe Gebäude – historisch/aktuell/Prognose unterschieden.
-        if let purchaseDate = property.purchaseDate {
-            let startYear = Calendar.current.component(.year, from: purchaseDate)
+        // 2 · Jahresreihe Gebäude – historisch/aktuell/Prognose unterschieden. Startjahr identisch
+        // mit `buildingAfA(forYear:)` (Übergang Nutzen/Lasten, ersatzweise Kaufdatum).
+        if let afaStartDate = property.afaStartDate {
+            let startYear = Calendar.current.component(.year, from: afaStartDate)
             let currentCalendarYear = Calendar.current.component(.year, from: .now)
             let endYear = max(taxYear, startYear + 9)
             if startYear <= endYear {
@@ -373,37 +641,54 @@ enum TaxReportPDFBuilder {
             }
         }
 
-        // 4 · Bewegliche Wirtschaftsgüter – im selben Bericht, aber als eigene Tabelle (keine Vermischung der Methoden).
-        let assets = property.depreciableAssets ?? []
-        if !assets.isEmpty {
-            let assetRows = assets.sorted { $0.placedInServiceDate < $1.placedInServiceDate }.map { asset -> [String] in
-                let cumulative = asset.cumulativeDepreciation(uptoYear: taxYear)
-                let remaining = asset.remainingDepreciationBookValue(afterYear: taxYear)
-                let method: String
-                if asset.isImmediatelyDeductible {
-                    method = "Sofortabzug (GWG)"
-                } else if asset.usesBuildingAfaRate {
-                    method = "wie Gebäude (\(property.afaRatePercent.asPercent))"
-                } else {
-                    method = "\(asset.usefulLifeYears) Jahre"
-                }
-                return [
-                    asset.name,
-                    asset.placedInServiceDate.asShortDate,
-                    asset.depreciationBasis.asCurrency,
-                    method,
-                    asset.depreciation(forYear: taxYear).asCurrency,
-                    cumulative.asCurrency,
-                    remaining.asCurrency,
-                    belegLabel(asset.documents)
-                ]
+        // 4 · Bewegliche Wirtschaftsgüter – im selben Bericht, aber als eigene Tabelle (keine
+        // Vermischung der Methoden). Herstellungskosten am Gebäude (.improvement, z.B. eine
+        // aktivierte Fassadendämmung) gehören NICHT hierhin, obwohl sie technisch auch ein
+        // `DepreciableAsset` sind – sonst erscheinen Gebäudepositionen fälschlich als „bewegliche“
+        // Wirtschaftsgüter/Einrichtung (siehe eigene Tabelle unten, analog zur Erstanlage).
+        func assetRow(_ asset: DepreciableAsset) -> [String] {
+            let cumulative = asset.cumulativeDepreciation(uptoYear: taxYear)
+            let remaining = asset.remainingDepreciationBookValue(afterYear: taxYear)
+            let method: String
+            if asset.isImmediatelyDeductible {
+                method = "Sofortabzug (GWG)"
+            } else if asset.usesBuildingAfaRate {
+                method = "wie Gebäude (\(property.afaRatePercent.asPercent))"
+            } else {
+                method = "\(asset.usefulLifeYears) Jahre"
             }
+            return [
+                asset.name,
+                asset.placedInServiceDate.asShortDate,
+                asset.depreciationBasis.asCurrency,
+                method,
+                asset.depreciation(forYear: taxYear).asCurrency,
+                cumulative.asCurrency,
+                remaining.asCurrency,
+                belegLabel(asset.documents)
+            ]
+        }
+        let assetColumnHeaders = ["Bezeichnung", "Anschaffung", "AK/Zeitwert", "Methode", "AfA \(String(taxYear))", "Bisherige AfA", "Restwert", "Beleg"]
+        let allAssets = property.depreciableAssets ?? []
+        let movableAssets = allAssets.filter { $0.category != .improvement }
+        let improvementAssets = allAssets.filter { $0.category == .improvement }
+
+        if !movableAssets.isEmpty {
             chapters.append(Chapter(
                 title: "AfA-Herleitung – Bewegliche Wirtschaftsgüter",
                 introLines: [],
                 summaryLines: [],
-                columnHeaders: ["Bezeichnung", "Anschaffung", "AK/Zeitwert", "Methode", "AfA \(String(taxYear))", "Bisherige AfA", "Restwert", "Beleg"],
-                rows: assetRows
+                columnHeaders: assetColumnHeaders,
+                rows: movableAssets.sorted { $0.placedInServiceDate < $1.placedInServiceDate }.map(assetRow)
+            ))
+        }
+        if !improvementAssets.isEmpty {
+            chapters.append(Chapter(
+                title: "AfA-Herleitung – Herstellungskosten am Gebäude",
+                introLines: ["Nachträglich aktivierte Positionen mit Gebäudebezug – werden wie das Gebäude selbst abgeschrieben, bewusst getrennt von den beweglichen Wirtschaftsgütern ausgewiesen."],
+                summaryLines: [],
+                columnHeaders: assetColumnHeaders,
+                rows: improvementAssets.sorted { $0.placedInServiceDate < $1.placedInServiceDate }.map(assetRow)
             ))
         }
 
@@ -425,7 +710,7 @@ enum TaxReportPDFBuilder {
             }
             chapters.append(Chapter(
                 title: "AfA-Herleitung – Maßnahmen und Änderungen",
-                introLines: ["Nachträglich als Herstellungskosten aktivierte Positionen werden als eigenes Wirtschaftsgut mit dem Gebäude-AfA-Satz abgeschrieben (siehe Tabelle „Bewegliche Wirtschaftsgüter“) und erhöhen die Bemessungsgrundlage erst ab dem genannten Wirksamkeitsjahr – frühere Jahre bleiben unverändert."],
+                introLines: ["Nachträglich als Herstellungskosten aktivierte Positionen werden als eigenes Wirtschaftsgut mit dem Gebäude-AfA-Satz abgeschrieben (siehe Tabelle „Herstellungskosten am Gebäude“) und erhöhen die Bemessungsgrundlage erst ab dem genannten Wirksamkeitsjahr – frühere Jahre bleiben unverändert."],
                 summaryLines: [],
                 columnHeaders: ["Entschieden am", "Maßnahme", "Wirksam ab", "Betrag", "Anlass", "Begründung"],
                 rows: changeRows
@@ -460,19 +745,12 @@ enum TaxReportPDFBuilder {
         resultLines.append("Vollständigkeit: \(completeness)")
         resultLines.append("Beurteilung: \(thresholdCase.status.label) (Hinweis, keine abschließende steuerliche Würdigung)")
 
-        let secondaryFraction: Double? = thresholdCase.possibleAdditionalAmount > 0 && thresholdCase.thresholdAmount > 0
-            ? (thresholdCase.includedNetTotal + thresholdCase.possibleAdditionalAmount) / thresholdCase.thresholdAmount
-            : nil
         chapters.append(Chapter(
             title: "15-%-Grenze – Ergebnisübersicht",
             introLines: [],
             summaryLines: resultLines,
             columnHeaders: [],
-            rows: [],
-            progressFraction: thresholdCase.utilizationPercent.map { $0 / 100 },
-            progressTone: toneForThresholdCaseStatus(thresholdCase.status),
-            secondaryProgressFraction: secondaryFraction,
-            secondaryProgressLabel: secondaryFraction != nil ? "Inkl. ungeklärter Positionen (heller): bis zu \((thresholdCase.includedNetTotal + thresholdCase.possibleAdditionalAmount).asCurrency)" : nil
+            rows: []
         ))
 
         // 2 · Kostenübersicht – mit Begründungsspalte und farblich codiertem Status.
@@ -637,7 +915,13 @@ enum TaxReportPDFBuilder {
         guard coldRent != 0 || werbungskosten != 0 || afaTotal != 0 else { return nil }
 
         let afaBuilding = property.buildingAfA(forYear: taxYear)
-        let afaAssets = property.assetDepreciation(forYear: taxYear)
+        // `.improvement`-Wirtschaftsgüter (z.B. eine aktivierte Fassadendämmung) werden mit dem
+        // Gebäude-AfA-Satz abgeschrieben, sind aber kein bewegliches Wirtschaftsgut/Einrichtung –
+        // getrennt ausgewiesen, damit die Zeile „Einrichtung“ nicht fälschlich Gebäudepositionen
+        // enthält. Die Summe bleibt identisch mit `property.assetDepreciation(forYear:)`.
+        let allAssets = property.depreciableAssets ?? []
+        let movableAssetAfa = allAssets.filter { $0.category != .improvement }.reduce(0.0) { $0 + $1.depreciation(forYear: taxYear) }
+        let improvementAssetAfa = allAssets.filter { $0.category == .improvement }.reduce(0.0) { $0 + $1.depreciation(forYear: taxYear) }
         let travel = property.travelExpenseTotal(forYear: taxYear)
         let homeOffice = property.homeOfficeAllowance(forYear: taxYear)
         let interest = property.loanBreakdown(forYear: taxYear)?.interest ?? 0
@@ -645,16 +929,21 @@ enum TaxReportPDFBuilder {
         let otherWK = property.otherDeductibleExpenses(forYear: taxYear)
 
         let totalIncome = coldRent
-        let totalExpenses = afaBuilding + afaAssets + travel + homeOffice + interest + maintenance + otherWK
+        let totalExpenses = afaBuilding + movableAssetAfa + improvementAssetAfa + travel + homeOffice + interest + maintenance + otherWK
         let result = totalIncome - totalExpenses
 
-        let rows: [[String]] = [
+        var rows: [[String]] = [
             ["##EINNAHMEN", ""],
             ["Kaltmiete / Grundmiete", coldRent.asCurrency],
             ["**Summe Einnahmen", totalIncome.asCurrency],
             ["##WERBUNGSKOSTEN", ""],
             ["AfA Gebäude", afaBuilding.asCurrency],
-            ["AfA bewegliche Wirtschaftsgüter (Einrichtung)", afaAssets.asCurrency],
+            ["AfA bewegliche Wirtschaftsgüter (Einrichtung)", movableAssetAfa.asCurrency]
+        ]
+        if improvementAssetAfa > 0 {
+            rows.append(["AfA Herstellungskosten am Gebäude (aktiviert, siehe AfA-Bericht)", improvementAssetAfa.asCurrency])
+        }
+        rows.append(contentsOf: [
             ["Fahrtkosten", travel.asCurrency],
             ["Homeoffice-Pauschale", homeOffice.asCurrency],
             ["Schuldzinsen", interest.asCurrency],
@@ -663,7 +952,7 @@ enum TaxReportPDFBuilder {
             ["**Summe Werbungskosten", totalExpenses.asCurrency],
             ["##ERGEBNIS", ""],
             ["**Einkünfte aus Vermietung und Verpachtung", result.asCurrency]
-        ]
+        ])
 
         return Chapter(
             title: "Anlage V – Einnahmen und Werbungskosten",
@@ -706,17 +995,29 @@ enum TaxReportPDFBuilder {
     }
 }
 
-// MARK: - Seiten
+// MARK: - Design-System der Steuerreports
 
-/// Gedeckte Akzentfarbe für die Vorlage „Ergebnis zuerst" – bewusst nicht die App-Akzentfarbe
+/// Ein einziges, durchgängiges Erscheinungsbild für beide Steuerreports (Erstanlage und laufender
+/// Betrieb) – weißer Hintergrund, dunkles Marineblau als alleinige Akzentfarbe, zurückhaltende
+/// Grautöne, feine Trennlinien statt Kästen/Balken. Bewusst nicht die App-Akzentfarbe
 /// (`Theme.accent`), da PDFs fürs Finanzamt unabhängig vom App-weiten Erscheinungsbild eine eigene,
-/// gleichbleibend seriöse Dokumentoptik behalten (siehe `TaxReportLayoutStyle`).
-private let taxReportAccent = Color(red: 0.227, green: 0.353, blue: 0.420)
+/// gleichbleibend seriöse Dokumentoptik behalten. Ersetzt die früher wählbaren zwei Layout-Vorlagen
+/// („Ergebnis zuerst“/„Formular-Raster“) durch ein gemeinsames, verbindliches Designsystem – siehe
+/// Antwort an den Nutzer für die Begründung dieser Konsolidierung.
+private enum TaxPDFPalette {
+    static let accent = Color(red: 0.067, green: 0.161, blue: 0.298)
+    static let tableHeaderDivider = accent
+    static let sectionDivider = Color.black.opacity(0.16)
+    static let rowDivider = Color.black.opacity(0.09)
+    static let sumRowFill = accent.opacity(0.045)
+    static let textPrimary = Color.black.opacity(0.87)
+    static let textSecondary = Color.black.opacity(0.52)
+}
 
 /// Grobe Heuristik, ob eine Zellen-Zeichenkette ein Betrag/Prozentwert ist (endet auf „€"/„%" oder
-/// besteht nur aus Ziffern/Zahlformat-Zeichen) – steuert Rechtsbündigkeit/Zifferfont in beiden
-/// Layout-Vorlagen, ohne sich auf Spaltenüberschriften verlassen zu müssen (die je Kapitel stark
-/// variieren, von „Betrag" bis „Bemessungsgrdl." oder „Restbuchwert").
+/// besteht nur aus Ziffern/Zahlformat-Zeichen) – bestimmt, ob eine Spalte rechtsbündig dargestellt
+/// wird, ohne sich auf Spaltenüberschriften verlassen zu müssen (die je Kapitel stark variieren, von
+/// „Betrag" bis „Bemessungsgrdl." oder „Restbuchwert").
 private func isNumericLikeCell(_ text: String) -> Bool {
     let trimmed = text.trimmingCharacters(in: .whitespaces)
     guard !trimmed.isEmpty else { return false }
@@ -725,7 +1026,7 @@ private func isNumericLikeCell(_ text: String) -> Bool {
 }
 
 /// Zerlegt eine Zelle in Anzeigetext + optionalen Farbton anhand des „§tone§…"-Präfixes (siehe
-/// `TaxReportPDFBuilder.tonedCell`) – von beiden Kapitel-Layouts geteilt.
+/// `TaxReportPDFBuilder.tonedCell`).
 private func parsedTaxCell(_ cell: String) -> (text: String, tone: Theme.StatusTone?) {
     if cell.hasPrefix("§good§") { return (String(cell.dropFirst(6)), .good) }
     if cell.hasPrefix("§warn§") { return (String(cell.dropFirst(6)), .warning) }
@@ -738,28 +1039,35 @@ private struct TaxPDFHeader: View {
     let kind: TaxReportKind
 
     var body: some View {
-        HStack {
-            Text(propertyLabel)
-            Spacer()
-            Text(kind.taxYear.map { "Steuerjahr \(String($0))" } ?? "Erstanlage")
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline) {
+                Text(propertyLabel)
+                Spacer()
+                Text(kind.taxYear.map { "Steuerjahr \(String($0))" } ?? "Erstanlage")
+            }
+            .font(.system(size: 8.5, weight: .medium))
+            .foregroundStyle(TaxPDFPalette.textSecondary)
+            Rectangle().fill(TaxPDFPalette.sectionDivider).frame(height: 0.75)
         }
-        .font(.system(size: 8.5))
-        .foregroundStyle(.secondary)
     }
 }
 
 private struct TaxPDFFooter: View {
+    let propertyLabel: String
     let pageNumber: Int
     let totalPages: Int
 
     var body: some View {
-        HStack {
-            Spacer()
-            Text("Seite \(String(pageNumber)) von \(String(totalPages))")
-            Spacer()
+        VStack(alignment: .leading, spacing: 4) {
+            Rectangle().fill(TaxPDFPalette.sectionDivider).frame(height: 0.75)
+            HStack(alignment: .firstTextBaseline) {
+                Text(propertyLabel)
+                Spacer()
+                Text("Seite \(String(pageNumber)) von \(String(totalPages))")
+            }
+            .font(.system(size: 7.5))
+            .foregroundStyle(TaxPDFPalette.textSecondary)
         }
-        .font(.system(size: 8))
-        .foregroundStyle(.secondary)
     }
 }
 
@@ -770,71 +1078,99 @@ private struct TaxPDFCoverPage: View {
     let pageNumber: Int
     let totalPages: Int
 
-    private var layout: TaxReportLayoutStyle { TaxReportLayoutStore.shared.style }
+    private var footerLabel: String {
+        let name = property.name.isEmpty ? property.address : property.name
+        return "\(name) · \(property.address)"
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
-            Spacer(minLength: 60)
-            Text("Steuerliche Unterlagen")
-                .font(.system(size: 26, weight: .bold))
-            Text("Private Vermietung und Verpachtung · Anlage V · \(kind.documentTitle)")
-                .font(.system(size: 13))
-                .foregroundStyle(.secondary)
-                .padding(.top, 6)
+            Text("STEUERLICHE UNTERLAGEN")
+                .font(.system(size: 9.5, weight: .bold))
+                .foregroundStyle(TaxPDFPalette.accent)
+                .tracking(1.2)
+            Text(kind.documentTitle)
+                .font(.system(size: 21, weight: .bold))
+                .foregroundStyle(TaxPDFPalette.textPrimary)
+                .padding(.top, 4)
+            Text("Einkünfte aus Vermietung und Verpachtung · Anlage V")
+                .font(.system(size: 10.5))
+                .foregroundStyle(TaxPDFPalette.textSecondary)
+                .padding(.top, 2)
 
-            Rectangle().fill(layout == .ergebnisZuerst ? taxReportAccent : Color.black)
-                .frame(height: layout == .formularraster ? 2 : 1)
-                .padding(.top, 20)
+            Rectangle().fill(TaxPDFPalette.accent).frame(height: 1.3).padding(.top, 16)
 
-            Group {
-                if layout == .formularraster {
-                    coverMetaGrid
-                        .padding(14)
-                        .overlay(Rectangle().stroke(Color.black, lineWidth: 1))
-                } else {
-                    coverMetaGrid
+            Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 7) {
+                GridRow {
+                    Text("Immobilie").font(.system(size: 9.5, weight: .semibold)).foregroundStyle(TaxPDFPalette.textSecondary)
+                    Text(property.name.isEmpty ? property.address : property.name).font(.system(size: 10))
+                }
+                GridRow {
+                    Text("Adresse").font(.system(size: 9.5, weight: .semibold)).foregroundStyle(TaxPDFPalette.textSecondary)
+                    Text(property.address).font(.system(size: 10))
+                }
+                if let taxYear = kind.taxYear {
+                    GridRow {
+                        Text("Steuerjahr").font(.system(size: 9.5, weight: .semibold)).foregroundStyle(TaxPDFPalette.textSecondary)
+                        Text(String(taxYear)).font(.system(size: 10)).monospacedDigit()
+                    }
+                }
+                GridRow {
+                    Text("Erstellt am").font(.system(size: 9.5, weight: .semibold)).foregroundStyle(TaxPDFPalette.textSecondary)
+                    Text(generatedAt.asShortDate).font(.system(size: 10)).monospacedDigit()
                 }
             }
-            .padding(.top, 28)
+            .padding(.top, 18)
 
-            Spacer()
+            if case .initialSetup = kind {
+                acquisitionSummary.padding(.top, 24)
+            }
+
+            Spacer(minLength: 20)
 
             Text("Diese Zusammenstellung ist eine Arbeits- und Nachweisunterlage auf Basis der in der App erfassten Daten. Sie ist keine amtliche Steuererklärung und stellt keine behördliche Anerkennung der enthaltenen Beträge oder steuerlichen Einordnungen dar.")
-                .font(.system(size: 9))
-                .foregroundStyle(.secondary)
+                .font(.system(size: 8.5))
+                .foregroundStyle(TaxPDFPalette.textSecondary)
                 .padding(.bottom, 10)
 
-            TaxPDFFooter(pageNumber: pageNumber, totalPages: totalPages)
+            TaxPDFFooter(propertyLabel: footerLabel, pageNumber: pageNumber, totalPages: totalPages)
         }
         .padding(44)
         .frame(width: TaxReportPDFBuilder.pageSize.width, height: TaxReportPDFBuilder.pageSize.height, alignment: .top)
         .background(Color.white)
-        .foregroundStyle(Color.black)
+        .foregroundStyle(TaxPDFPalette.textPrimary)
     }
 
+    /// Zentrale Anschaffungsdaten + kurze Zusammenfassung direkt auf Seite 1 der Erstanlage (siehe
+    /// Auftrag Abschnitt 3) – statt einer separaten, fast leeren Titelseite ohne Inhalt.
     @ViewBuilder
-    private var coverMetaGrid: some View {
-        Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 10, verticalSpacing: 6) {
-            GridRow {
-                Text("Immobilie").fontWeight(.semibold)
-                Text(property.name.isEmpty ? property.address : property.name)
-            }
-            GridRow {
-                Text("Adresse").fontWeight(.semibold)
-                Text(property.address)
-            }
-            if let taxYear = kind.taxYear {
+    private var acquisitionSummary: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Text("ZENTRALE ANSCHAFFUNGSDATEN")
+                .font(.system(size: 9, weight: .bold))
+                .foregroundStyle(TaxPDFPalette.accent)
+                .tracking(0.8)
+            Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 5) {
                 GridRow {
-                    Text("Steuerjahr").fontWeight(.semibold)
-                    Text(String(taxYear)).font(.system(size: 12, design: layout == .formularraster ? .monospaced : .default))
+                    Text("Kaufpreis").font(.system(size: 9.5)).foregroundStyle(TaxPDFPalette.textSecondary)
+                    Text(property.purchasePrice.asCurrency).font(.system(size: 9.5)).monospacedDigit()
+                }
+                GridRow {
+                    Text("Kaufdatum").font(.system(size: 9.5)).foregroundStyle(TaxPDFPalette.textSecondary)
+                    Text(property.purchaseDate?.asShortDate ?? "nicht erfasst").font(.system(size: 9.5))
+                }
+                GridRow {
+                    Text("Baujahr").font(.system(size: 9.5)).foregroundStyle(TaxPDFPalette.textSecondary)
+                    Text(property.constructionYear.map { String($0) } ?? "nicht erfasst").font(.system(size: 9.5))
+                }
+                if property.buildingValue > 0 {
+                    GridRow {
+                        Text("AfA-Bemessungsgrundlage Gebäude").font(.system(size: 9.5)).foregroundStyle(TaxPDFPalette.textSecondary)
+                        Text(property.buildingValue.asCurrency).font(.system(size: 9.5)).monospacedDigit()
+                    }
                 }
             }
-            GridRow {
-                Text("Erstellt am").fontWeight(.semibold)
-                Text(generatedAt.asShortDate).font(.system(size: 12, design: layout == .formularraster ? .monospaced : .default))
-            }
         }
-        .font(.system(size: 12))
     }
 }
 
@@ -845,43 +1181,38 @@ private struct TaxPDFTOCPage: View {
     let pageNumber: Int
     let totalPages: Int
 
-    private var layout: TaxReportLayoutStyle { TaxReportLayoutStore.shared.style }
-
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             TaxPDFHeader(propertyLabel: propertyLabel, kind: kind)
             Text("Inhaltsverzeichnis")
-                .font(.system(size: 19, weight: .bold))
-                .padding(.top, 10)
-            Rectangle().fill(layout == .ergebnisZuerst ? taxReportAccent : Color.black)
-                .frame(height: layout == .formularraster ? 2 : 1)
-                .padding(.top, 10)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundStyle(TaxPDFPalette.textPrimary)
+                .padding(.top, 14)
 
             VStack(alignment: .leading, spacing: 0) {
                 ForEach(Array(entries.enumerated()), id: \.offset) { index, entry in
-                    HStack {
+                    HStack(alignment: .firstTextBaseline) {
                         Text("\(String(index + 1)). \(entry.title)")
                         Spacer()
-                        Text(String(entry.page)).font(.system(size: 12, design: layout == .formularraster ? .monospaced : .default))
+                        Text(String(entry.page)).monospacedDigit()
                     }
-                    .padding(.vertical, layout == .formularraster ? 7 : 5)
+                    .font(.system(size: 10.5))
+                    .foregroundStyle(TaxPDFPalette.textPrimary)
+                    .padding(.vertical, 6)
                     .overlay(alignment: .bottom) {
-                        if layout == .formularraster {
-                            Rectangle().fill(Color.black.opacity(0.3)).frame(height: 0.6)
-                        }
+                        Rectangle().fill(TaxPDFPalette.rowDivider).frame(height: 0.5)
                     }
                 }
             }
-            .font(.system(size: 12))
-            .padding(.top, 20)
+            .padding(.top, 16)
 
             Spacer(minLength: 0)
-            TaxPDFFooter(pageNumber: pageNumber, totalPages: totalPages)
+            TaxPDFFooter(propertyLabel: propertyLabel, pageNumber: pageNumber, totalPages: totalPages)
         }
         .padding(44)
         .frame(width: TaxReportPDFBuilder.pageSize.width, height: TaxReportPDFBuilder.pageSize.height, alignment: .top)
         .background(Color.white)
-        .foregroundStyle(Color.black)
+        .foregroundStyle(TaxPDFPalette.textPrimary)
     }
 }
 
@@ -891,37 +1222,27 @@ private struct TaxPDFChapterPage: View {
     let title: String
     let introLines: [String]
     let summaryLines: [String]
-    var progressFraction: Double? = nil
-    var progressTone: Theme.StatusTone = .neutral
-    var secondaryProgressFraction: Double? = nil
-    var secondaryProgressLabel: String? = nil
     let columnHeaders: [String]
     let rows: [[String]]
-    var startingRowNumber: Int = 1
+    /// Feste Fakten-Zeilen vor den Tabellen (siehe `TaxReportPDFBuilder.Chapter.headerFacts`).
+    var headerFacts: [(label: String, value: String)] = []
+    /// Mehrere eigenständige Tabellen auf einer Seite (siehe `TaxReportPDFBuilder.Chapter.additionalTables`).
+    var additionalTables: [(title: String, columnHeaders: [String], rows: [[String]])] = []
     let pageNumber: Int
     let totalPages: Int
-
-    private var layout: TaxReportLayoutStyle { TaxReportLayoutStore.shared.style }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 0) {
             TaxPDFHeader(propertyLabel: propertyLabel, kind: kind)
-            switch layout {
-            case .ergebnisZuerst:
-                ergebnisZuerstContent
-            case .formularraster:
-                formularrasterContent
-            }
+            content
             Spacer(minLength: 0)
-            TaxPDFFooter(pageNumber: pageNumber, totalPages: totalPages)
+            TaxPDFFooter(propertyLabel: propertyLabel, pageNumber: pageNumber, totalPages: totalPages)
         }
         .padding(44)
         .frame(width: TaxReportPDFBuilder.pageSize.width, height: TaxReportPDFBuilder.pageSize.height, alignment: .top)
         .background(Color.white)
-        .foregroundStyle(Color.black)
+        .foregroundStyle(TaxPDFPalette.textPrimary)
     }
-
-    // MARK: Ergebnis zuerst
 
     /// Letzte „**"-markierte Zeile (der Abschluss-/Ergebniswert eines Kapitels) als (Label, Wert) –
     /// nil, wenn das Kapitel keine solche Zeile hat (reine Belegtabellen o.ä.).
@@ -933,7 +1254,7 @@ private struct TaxPDFChapterPage: View {
         return (label, value)
     }
 
-    /// Fallback-Kopfzeile für Kapitel ohne Tabelle (nur `summaryLines`, z.B. AfA-Satz-Herleitung):
+    /// Fallback-Kopfzeile für Kapitel ohne Tabelle (nur `summaryLines`, z.B. 15-%-Grenze-Übersicht):
     /// die erste nichtleere Zusammenfassungszeile.
     private var fallbackHeadlineLine: String? {
         guard headline == nil, rows.isEmpty else { return nil }
@@ -953,8 +1274,8 @@ private struct TaxPDFChapterPage: View {
         copy.remove(at: lastIndex)
         // Falls die entfernte Zeile der einzige Inhalt ihres „##"-Abschnitts war, bliebe sonst eine
         // leere Abschnittsüberschrift ohne jede Zeile darunter stehen (z.B. „ERGEBNIS" ohne
-        // Ergebniszeile, weil genau die in die Kennzahlen-Box oben gewandert ist) – die wird dann
-        // ebenfalls entfernt, statt als Karteileiche im Kapitel zu bleiben.
+        // Ergebniszeile, weil genau die in die Kopfzeile oben gewandert ist) – die wird dann ebenfalls
+        // entfernt, statt als Karteileiche im Kapitel zu bleiben.
         if lastIndex > 0, rows[lastIndex - 1].first?.hasPrefix("##") == true {
             let isLastRow = lastIndex == rows.count - 1
             let nextIsNewSection = !isLastRow && rows[lastIndex + 1].first?.hasPrefix("##") == true
@@ -966,290 +1287,263 @@ private struct TaxPDFChapterPage: View {
     }
 
     @ViewBuilder
-    private func resultBox(label: String, value: String) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
-            Text(label.uppercased())
-                .font(.system(size: 10, weight: .semibold))
-                .foregroundStyle(taxReportAccent)
-                .tracking(0.3)
-            if !value.isEmpty {
-                Text(value)
-                    .font(.system(size: 27, weight: .heavy, design: .rounded))
+    private func headlineLine(label: String, value: String) -> some View {
+        HStack(alignment: .firstTextBaseline, spacing: 10) {
+            Rectangle().fill(TaxPDFPalette.accent).frame(width: 3, height: 24)
+            VStack(alignment: .leading, spacing: 1) {
+                Text(label.uppercased())
+                    .font(.system(size: 8.5, weight: .semibold))
+                    .foregroundStyle(TaxPDFPalette.accent)
+                    .tracking(0.4)
+                if !value.isEmpty {
+                    Text(value)
+                        .font(.system(size: 17, weight: .bold))
+                        .monospacedDigit()
+                        .foregroundStyle(TaxPDFPalette.textPrimary)
+                }
             }
         }
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(18)
-        .background(taxReportAccent.opacity(0.07))
-        .overlay(RoundedRectangle(cornerRadius: 6).stroke(taxReportAccent, lineWidth: 1.1))
     }
 
     @ViewBuilder
-    private func highlightedLine(_ text: String) -> some View {
-        Text(text)
-            .font(.system(size: 11.5, weight: .semibold))
-            .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(14)
-            .background(taxReportAccent.opacity(0.07))
-            .overlay(RoundedRectangle(cornerRadius: 6).stroke(taxReportAccent, lineWidth: 1.1))
-    }
-
-    @ViewBuilder
-    private var ergebnisZuerstContent: some View {
+    private var content: some View {
         Text(title)
-            .font(.system(size: 20, weight: .bold))
-            .padding(.top, 10)
+            .font(.system(size: 15, weight: .bold))
+            .foregroundStyle(TaxPDFPalette.textPrimary)
+            .padding(.top, 12)
 
         if !introLines.isEmpty {
             VStack(alignment: .leading, spacing: 3) {
                 ForEach(introLines, id: \.self) { line in
-                    Text(line).font(.system(size: 9)).foregroundStyle(.secondary)
+                    Text(line).font(.system(size: 8.5)).foregroundStyle(TaxPDFPalette.textSecondary)
                 }
             }
-            .padding(.top, 6)
+            .padding(.top, 5)
         }
 
         if let headline {
-            resultBox(label: headline.label, value: headline.value).padding(.top, 16)
+            headlineLine(label: headline.label, value: headline.value).padding(.top, 12)
         } else if let fallbackHeadlineLine {
-            highlightedLine(fallbackHeadlineLine).padding(.top, 16)
+            Text(fallbackHeadlineLine)
+                .font(.system(size: 11, weight: .semibold))
+                .foregroundStyle(TaxPDFPalette.accent)
+                .padding(.top, 12)
         }
 
         if !remainingSummaryLines.isEmpty {
             VStack(alignment: .leading, spacing: 4) {
                 ForEach(Array(remainingSummaryLines.enumerated()), id: \.offset) { _, line in
                     if line.isEmpty {
-                        Color.clear.frame(height: 6)
+                        Color.clear.frame(height: 5)
                     } else {
-                        Text(line).font(.system(size: 11))
+                        Text(line).font(.system(size: 9.5)).foregroundStyle(TaxPDFPalette.textPrimary)
                     }
                 }
             }
-            .padding(.top, 14)
+            .padding(.top, 10)
         }
 
-        if let progressFraction {
-            UtilizationBar(fraction: progressFraction, tone: progressTone, height: 10)
-                .padding(.top, 10)
-        }
-        if let secondaryProgressFraction {
-            UtilizationBar(fraction: secondaryProgressFraction, tone: .neutral, height: 6)
-                .padding(.top, 5)
-            if let secondaryProgressLabel {
-                Text(secondaryProgressLabel)
-                    .font(.system(size: 8.5))
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 2)
-            }
-        }
 
         if !columnHeaders.isEmpty {
-            Text("HERLEITUNG")
-                .font(.system(size: 10, weight: .bold))
-                .foregroundStyle(taxReportAccent)
-                .tracking(0.8)
-                .padding(.top, 20)
-            ergebnisZuerstTable
-                .padding(.top, 8)
+            TaxPDFTable(columnHeaders: columnHeaders, rows: tableRowsExcludingHeadline)
+                .padding(.top, 18)
         }
+
+        if !headerFacts.isEmpty {
+            factsGrid.padding(.top, 14)
+        }
+
+        ForEach(Array(additionalTables.enumerated()), id: \.offset) { index, block in
+            Text(block.title)
+                .font(.system(size: 10.5, weight: .bold))
+                .foregroundStyle(TaxPDFPalette.accent)
+                .tracking(0.4)
+                .padding(.top, index == 0 && headerFacts.isEmpty ? 14 : 16)
+            TaxPDFTable(columnHeaders: block.columnHeaders, rows: block.rows)
+                .padding(.top, 6)
+        }
+    }
+
+    /// Objekt-/Anschaffungsdaten als kompakte Label/Wert-Zeilen vor den A–D-Tabellen der neu
+    /// strukturierten Erstanlage-Seite 1 – bewusst kein generisches Tabellenformat, da es sich um
+    /// Einzelfakten statt um Positionen mit Beträgen handelt.
+    @ViewBuilder
+    private var factsGrid: some View {
+        Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 14, verticalSpacing: 4) {
+            ForEach(Array(headerFacts.enumerated()), id: \.offset) { _, fact in
+                GridRow {
+                    Text(fact.label)
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(TaxPDFPalette.textSecondary)
+                    Text(fact.value)
+                        .font(.system(size: 9.5))
+                        .foregroundStyle(TaxPDFPalette.textPrimary)
+                }
+            }
+        }
+    }
+}
+
+/// Eigenständige, wiederverwendbare Tabellen-Komponente (Kopfzeile, „##"-Abschnitte, „**"-Summenzeilen,
+/// spaltenweise Rechts-/Linksbündigkeit) – sowohl für die einzelne Haupttabelle eines Kapitels als
+/// auch für mehrere unabhängige Tabellen auf einer Seite (z.B. Erstanlage-Seite 1, Abschnitte A–D).
+private struct TaxPDFTable: View {
+    let columnHeaders: [String]
+    let rows: [[String]]
+
+    /// Je Spalte, ob sie überwiegend betrags-/zahlenartige Werte enthält – bestimmt die Ausrichtung
+    /// von Kopf- UND Datenzellen dieser Spalte einheitlich (statt pro Zelle unabhängig zu
+    /// entscheiden), damit z.B. eine „Betrag"-Überschrift über rechtsbündigen Eurobeträgen selbst
+    /// auch rechtsbündig steht.
+    private var columnIsNumeric: [Bool] {
+        guard !columnHeaders.isEmpty else { return [] }
+        var flags = Array(repeating: false, count: columnHeaders.count)
+        let dataRows = rows.filter { ($0.first?.hasPrefix("##") ?? false) == false }
+        for col in 0..<columnHeaders.count {
+            var numericCount = 0
+            var total = 0
+            for row in dataRows {
+                guard col < row.count else { continue }
+                var text = row[col]
+                if text.hasPrefix("**") { text = String(text.dropFirst(2)) }
+                text = parsedTaxCell(text).text
+                guard !text.isEmpty else { continue }
+                total += 1
+                if isNumericLikeCell(text) { numericCount += 1 }
+            }
+            flags[col] = total > 0 && Double(numericCount) / Double(total) > 0.5
+        }
+        return flags
+    }
+
+    private func columnAlignment(_ index: Int, in flags: [Bool]) -> HorizontalAlignment {
+        (index < flags.count && flags[index]) ? .trailing : .leading
     }
 
     @ViewBuilder
-    private var ergebnisZuerstTable: some View {
-        Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 8, verticalSpacing: 6) {
-            GridRow {
-                ForEach(Array(columnHeaders.enumerated()), id: \.offset) { _, header in
-                    Text(header)
-                        .font(.system(size: 9.5, weight: .semibold))
-                        .foregroundStyle(taxReportAccent)
-                }
-            }
-            GridRow {
-                Rectangle().fill(taxReportAccent).frame(height: 1.4).gridCellColumns(max(columnHeaders.count, 1))
-            }
-            ForEach(Array(tableRowsExcludingHeadline.enumerated()), id: \.offset) { _, row in
-                let isSection = row.first?.hasPrefix("##") == true
-                let isEmphasized = row.first?.hasPrefix("**") == true
-                let displayRow = row.map { cell -> String in
-                    if cell.hasPrefix("##") { return String(cell.dropFirst(2)) }
-                    if cell.hasPrefix("**") { return String(cell.dropFirst(2)) }
-                    return cell
-                }
-                if isSection {
-                    GridRow {
-                        Text(displayRow.first ?? "")
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(taxReportAccent)
-                            .padding(.top, 6)
-                            .gridCellColumns(max(columnHeaders.count, 1))
-                    }
-                } else {
-                    GridRow {
-                        ForEach(Array(displayRow.enumerated()), id: \.offset) { _, cell in
-                            let parsed = parsedTaxCell(cell)
-                            Text(parsed.text)
-                                .font(.system(size: 10, weight: isEmphasized ? .bold : .regular, design: isNumericLikeCell(parsed.text) ? .monospaced : .default))
-                                .foregroundStyle(parsed.tone?.color ?? .primary)
-                        }
-                    }
-                }
-            }
-        }
-        .font(.system(size: 10))
-    }
-
-    // MARK: Formular-Raster
-
-    private enum FormularrasterRowKind { case normal, section, total }
-
-    private var numberedRows: [(number: Int?, kind: FormularrasterRowKind, row: [String])] {
-        var counter = startingRowNumber - 1
-        var result: [(Int?, FormularrasterRowKind, [String])] = []
-        for row in rows {
-            let first = row.first ?? ""
-            if first.hasPrefix("##") {
-                result.append((nil, .section, row))
-            } else if first.hasPrefix("**") {
-                result.append((nil, .total, row))
-            } else {
-                counter += 1
-                result.append((counter, .normal, row))
-            }
-        }
-        return result
-    }
-
-    @ViewBuilder
-    private func formularrasterCell(_ text: String, bold: Bool = false, fill: Bool = false, tone: Theme.StatusTone? = nil, isHeaderBar: Bool = false) -> some View {
-        let numeric = isNumericLikeCell(text)
+    private func cell(_ text: String, alignment: HorizontalAlignment = .leading, bold: Bool = false, sumFill: Bool = false, tone: Theme.StatusTone? = nil, isHeader: Bool = false, isLastRow: Bool = false, minWidth: CGFloat? = nil) -> some View {
         Text(text)
-            .font(.system(size: 9, weight: (bold || isHeaderBar) ? .bold : .regular, design: numeric ? .monospaced : .default))
-            .foregroundStyle(isHeaderBar ? Color.white : (tone?.color ?? Color.black))
-            .frame(maxWidth: .infinity, alignment: numeric ? .trailing : .leading)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 5)
-            .background(isHeaderBar ? Color.black : (fill ? Color.black.opacity(0.08) : Color.clear))
-            .overlay(alignment: .trailing) { Rectangle().fill(Color.black).frame(width: 0.6) }
-            .overlay(alignment: .bottom) { Rectangle().fill(Color.black).frame(height: 0.6) }
+            .font(.system(size: isHeader ? 8 : 9, weight: (bold || isHeader) ? .bold : .regular))
+            .monospacedDigit()
+            .tracking(isHeader ? 0.3 : 0)
+            .foregroundStyle(isHeader ? TaxPDFPalette.accent : (tone?.color ?? TaxPDFPalette.textPrimary))
+            .multilineTextAlignment(alignment == .trailing ? .trailing : .leading)
+            // Ohne `fixedSize` ermittelt SwiftUI in diesem Grid manchmal nur die einzeilige
+            // Idealhöhe und schneidet lange Bezeichnungen mit „…" ab, statt sie – wie gewünscht –
+            // kontrolliert umzubrechen; erzwingt stattdessen immer die mehrzeilige Höhe. Horizontal
+            // bewusst NICHT fixiert: ein `fixedSize(horizontal: true)` auf zahlenartigen Zellen (um
+            // ein Umbrechen mitten in der Zahl, z.B. "28.10.202"/"5", zu verhindern) erzwingt deren
+            // volle, unkomprimierte Idealbreite – bei vielen Spalten (z.B. eine achtspaltige
+            // Tabelle) kann die Summe dieser Idealbreiten die verfügbare Seitenbreite übersteigen,
+            // wodurch `Grid` über den Rand hinauswächst und der PDF-Renderer die GANZE Seite links
+            // abschneidet. Stattdessen übernimmt `columnMinWidth` (s.u.) für zahlenartige Spalten
+            // eine Mindestbreite, die ein Umbrechen mitten in der Zahl bei realistischen Beträgen/
+            // Daten ebenso zuverlässig verhindert, ohne das Seitenbudget zu sprengen.
+            .fixedSize(horizontal: false, vertical: true)
+            // Oben statt mittig ausgerichtet: bei unterschiedlicher Zeilenzahl je Zelle (lange
+            // Bezeichnungen brechen um, kurze Beträge nicht) sorgt eine vertikale Mittelausrichtung
+            // sonst für eine Y-Position, die nicht mehr zur restlichen Zeile passt – das verwirrt
+            // sowohl das Auge als auch die PDF-Textextraktion (Lesereihenfolge nach Y-Position).
+            // `minWidth` auf der ersten (Label-)Spalte: ohne sie verteilt `Grid` bei lauter
+            // `maxWidth: .infinity`-Zellen die Breite nahezu gleichmäßig, auch wenn die Label-Spalte
+            // deutlich längeren Text trägt als die übrigen – das erzwingt unnötige, teils mitten im
+            // Wort umbrechende Zeilenumbrüche statt eines angemessen breiteren ersten Spalte.
+            .frame(minWidth: minWidth, maxWidth: .infinity, alignment: Alignment(horizontal: alignment, vertical: .top))
+            .padding(.horizontal, 6)
+            .padding(.vertical, isHeader ? 5 : 6)
+            // Zweites `frame` mit `maxHeight: .infinity`: ohne das füllt die Zelle nur die Höhe
+            // ihres eigenen (ggf. kürzeren) Inhalts, nicht die vom Grid vergebene Zeilenhöhe – bei
+            // unterschiedlich hohen Nachbarzellen in derselben Zeile (umgebrochene Bezeichnung neben
+            // einzeiligem Betrag) landete die untere Trennlinie dann auf unterschiedlicher Höhe und
+            // wirkte schief/uneben, statt eine durchgehend gerade Linie über die ganze Zeile zu bilden.
+            .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: Alignment(horizontal: alignment, vertical: .top))
+            .background(sumFill ? TaxPDFPalette.sumRowFill : Color.clear)
+            .overlay(alignment: .bottom) {
+                if isHeader {
+                    Rectangle().fill(TaxPDFPalette.tableHeaderDivider).frame(height: 1.2)
+                } else if !isLastRow {
+                    Rectangle().fill(TaxPDFPalette.rowDivider).frame(height: 0.5)
+                }
+            }
     }
 
     @ViewBuilder
-    private func formularrasterSectionBar(_ text: String) -> some View {
+    private func sectionRow(_ text: String) -> some View {
         Text(text)
-            .font(.system(size: 9.5, weight: .bold))
-            .foregroundStyle(Color.white)
-            .tracking(0.6)
+            .font(.system(size: 9, weight: .bold))
+            .foregroundStyle(TaxPDFPalette.accent)
+            .tracking(0.5)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .padding(.horizontal, 7)
-            .padding(.vertical, 6)
-            .background(Color.black)
-    }
-
-    @ViewBuilder
-    private var formularrasterSummaryBox: some View {
-        VStack(alignment: .leading, spacing: 0) {
-            ForEach(Array(summaryLines.enumerated()), id: \.offset) { index, line in
-                if line.isEmpty {
-                    Color.clear.frame(height: 4)
-                } else {
-                    Text(line)
-                        .font(.system(size: 9.5, design: isNumericLikeCell(line) ? .monospaced : .default))
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 6)
-                        .overlay(alignment: .bottom) {
-                            if index < summaryLines.count - 1 {
-                                Rectangle().fill(Color.black.opacity(0.25)).frame(height: 0.75)
-                            }
-                        }
-                }
+            .padding(.horizontal, 6)
+            .padding(.top, 10)
+            .padding(.bottom, 4)
+            .overlay(alignment: .bottom) {
+                Rectangle().fill(TaxPDFPalette.sectionDivider).frame(height: 0.75)
             }
-        }
-        .overlay(Rectangle().stroke(Color.black, lineWidth: 1))
     }
 
-    @ViewBuilder
-    private var formularrasterTable: some View {
-        let colCount = columnHeaders.count + 1
+    /// Mindestbreiten je Spalte, konstruktionsbedingt budgetiert: die Summe aller Mindestbreiten
+    /// darf die verfügbare Seitenbreite (595pt Seitenbreite − 2×44pt Innenabstand ≈ 507pt, siehe
+    /// `TaxReportPDFBuilder.pageSize`/`TaxPDFChapterPage`) bei der in dieser App größten
+    /// vorkommenden Spaltenzahl (8: Spalte 0 mit 100pt + 7 weitere mit je 54pt = 478pt) nie
+    /// übersteigen. Ursprünglich wurde das Umbrechen zahlenartiger Zellen mitten in der Zahl (z.B.
+    /// "28.10.202"/"5") über `fixedSize(horizontal: true)` auf der Zelle selbst verhindert – das
+    /// erzwingt aber die volle, unkomprimierte Idealbreite jeder einzelnen Zelle, und bei vielen
+    /// Spalten (z.B. der achtspaltigen AfA-Tabelle) summierten sich diese Idealbreiten auf mehr als
+    /// die verfügbare Seitenbreite: `Grid` wuchs über den Seitenrand hinaus, und der PDF-Renderer
+    /// schnitt daraufhin die GESAMTE Seite links ab, statt nur die Tabelle zu stauchen. Eine fest
+    /// budgetierte Mindestbreite verhindert das Umbrechen mitten in der Zahl für realistische
+    /// Beträge/Daten genauso zuverlässig, ohne dieses Seitenbudget je zu sprengen.
+    /// Spalte 0 (die Bezeichnung) bekommt bei bis zu sechs Spalten die volle, großzügige
+    /// Mindestbreite (130pt) – dort ist genug Budget übrig, und lange zusammengesetzte Begriffe
+    /// (z.B. "Auflassungsvormerkung") sollen nicht mitten im Wort umbrechen müssen. Erst ab sieben
+    /// Spalten (den beiden achtspaltigen AfA-Tabellen) wird sie enger budgetiert (100pt) – dort
+    /// kommen ohnehin nur kurze, frei vergebene Bezeichnungen vor (Wirtschaftsgut-Namen).
+    private func columnMinWidth(_ index: Int, in flags: [Bool]) -> CGFloat? {
+        guard columnHeaders.count >= 3 else { return nil }
+        if index == 0 { return columnHeaders.count >= 7 ? 100 : 130 }
+        if index < flags.count, flags[index] { return 54 }
+        if columnHeaders.count >= 5, index < flags.count, !flags[index] { return 54 }
+        return nil
+    }
+
+    var body: some View {
+        let flags = columnIsNumeric
         Grid(alignment: .leading, horizontalSpacing: 0, verticalSpacing: 0) {
             GridRow {
-                formularrasterCell("Nr.", isHeaderBar: true)
-                ForEach(Array(columnHeaders.enumerated()), id: \.offset) { _, header in
-                    formularrasterCell(header, isHeaderBar: true)
+                ForEach(Array(columnHeaders.enumerated()), id: \.offset) { index, header in
+                    cell(header.uppercased(), alignment: columnAlignment(index, in: flags), isHeader: true, minWidth: columnMinWidth(index, in: flags))
                 }
             }
-            ForEach(Array(numberedRows.enumerated()), id: \.offset) { _, entry in
-                switch entry.kind {
-                case .section:
+            ForEach(Array(rows.enumerated()), id: \.offset) { index, row in
+                let isLast = index == rows.count - 1
+                if row.first?.hasPrefix("##") == true {
                     GridRow {
-                        formularrasterSectionBar(entry.row.first.map { String($0.dropFirst(2)) } ?? "")
-                            .gridCellColumns(colCount)
+                        sectionRow(String((row.first ?? "").dropFirst(2)))
+                            .gridCellColumns(max(columnHeaders.count, 1))
                     }
-                case .total:
+                } else if row.first?.hasPrefix("**") == true {
                     GridRow {
-                        formularrasterCell("", fill: true)
-                        ForEach(Array(entry.row.enumerated()), id: \.offset) { _, cell in
-                            let display = cell.hasPrefix("**") ? String(cell.dropFirst(2)) : cell
-                            formularrasterCell(display, bold: true, fill: true)
+                        ForEach(Array(row.enumerated()), id: \.offset) { colIndex, c in
+                            let display = c.hasPrefix("**") ? String(c.dropFirst(2)) : c
+                            cell(display, alignment: columnAlignment(colIndex, in: flags), bold: true, sumFill: true, isLastRow: isLast, minWidth: columnMinWidth(colIndex, in: flags))
                         }
                     }
-                case .normal:
+                } else {
                     GridRow {
-                        formularrasterCell(entry.number.map(String.init) ?? "")
-                        ForEach(Array(entry.row.enumerated()), id: \.offset) { _, cell in
-                            let parsed = parsedTaxCell(cell)
-                            formularrasterCell(parsed.text, tone: parsed.tone)
+                        ForEach(Array(row.enumerated()), id: \.offset) { colIndex, c in
+                            let parsed = parsedTaxCell(c)
+                            cell(parsed.text, alignment: columnAlignment(colIndex, in: flags), tone: parsed.tone, isLastRow: isLast, minWidth: columnMinWidth(colIndex, in: flags))
                         }
                     }
                 }
             }
         }
-        .overlay(Rectangle().stroke(Color.black, lineWidth: 1))
-    }
-
-    @ViewBuilder
-    private var formularrasterContent: some View {
-        HStack(alignment: .firstTextBaseline) {
-            Text(title)
-                .font(.system(size: 16, weight: .bold))
-            Spacer()
-            Text(kind.taxYear.map { "STEUERJAHR \(String($0))" } ?? "ERSTANLAGE")
-                .font(.system(size: 9, weight: .semibold, design: .monospaced))
-                .padding(.horizontal, 8)
-                .padding(.vertical, 3)
-                .overlay(Rectangle().stroke(Color.black, lineWidth: 1))
-        }
-        .padding(.top, 10)
-
-        if !introLines.isEmpty {
-            VStack(alignment: .leading, spacing: 3) {
-                ForEach(introLines, id: \.self) { line in
-                    Text(line).font(.system(size: 8.5)).foregroundStyle(.secondary)
-                }
-            }
-            .padding(.top, 8)
-        }
-
-        if !summaryLines.isEmpty {
-            formularrasterSummaryBox.padding(.top, 10)
-        }
-
-        if let progressFraction {
-            UtilizationBar(fraction: progressFraction, tone: progressTone, height: 10)
-                .padding(.top, 10)
-        }
-        if let secondaryProgressFraction {
-            UtilizationBar(fraction: secondaryProgressFraction, tone: .neutral, height: 6)
-                .padding(.top, 5)
-            if let secondaryProgressLabel {
-                Text(secondaryProgressLabel)
-                    .font(.system(size: 8))
-                    .foregroundStyle(.secondary)
-                    .padding(.top, 2)
-            }
-        }
-
-        if !columnHeaders.isEmpty {
-            formularrasterTable.padding(.top, 12)
-        }
+        .overlay(Rectangle().stroke(TaxPDFPalette.sectionDivider, lineWidth: 0.75))
+        // Die `maxHeight: .infinity`-Zellen (siehe `cell(...)`) machen das gesamte Grid selbst
+        // vertikal flexibel – ohne `fixedSize` würde die Tabelle dadurch in der umgebenden Seite
+        // unkontrolliert wachsen und sich den Platz des abschließenden `Spacer` (der die Fußzeile
+        // nach unten schiebt) streitig machen, statt bei ihrer natürlichen Inhaltshöhe zu bleiben.
+        .fixedSize(horizontal: false, vertical: true)
     }
 }

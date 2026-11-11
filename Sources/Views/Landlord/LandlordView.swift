@@ -52,6 +52,7 @@ struct LandlordView: View {
 
                     Section {
                         LabeledContent("Grenzsteuersatz", value: landlord.marginalTaxRatePercent.asPercent)
+                        LabeledContent("Steuerberater", value: landlord.usesTaxAdvisor ? "Ja" : "Nein")
                         Picker("Jahr", selection: $selectedTaxYear) {
                             ForEach(availableTaxYears, id: \.self) { year in
                                 Text(String(year)).tag(year)

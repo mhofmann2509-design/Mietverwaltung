@@ -148,13 +148,7 @@ struct MoeblierungListView: View {
         )
         guard let data = PDFExporter.renderPDF(size: AssetReportDocument.pageSize, content: { document }) else { return nil }
         let fileName = property?.name ?? (onlyCoRented ? "Mitvermietet" : "Möblierungsliste")
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Möblierungsliste \(fileName) \(reportYear).pdf")
-        do {
-            try data.write(to: url, options: .atomic)
-            return url
-        } catch {
-            return nil
-        }
+        return try? ExportFileStore.write(data, fileName: "Möblierungsliste \(fileName) \(reportYear).pdf")
     }
 
     /// Excel-Export aller angezeigten Wirtschaftsgüter als echte `.xlsx`-Datei.
@@ -180,13 +174,7 @@ struct MoeblierungListView: View {
         )
         guard let data = XLSXExporter.data(sheets: [sheet]) else { return nil }
         let fileName = property?.name ?? (onlyCoRented ? "Mitvermietet" : "Möblierungsliste")
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Möblierungsliste \(fileName).xlsx")
-        do {
-            try data.write(to: url, options: .atomic)
-            return url
-        } catch {
-            return nil
-        }
+        return try? ExportFileStore.write(data, fileName: "Möblierungsliste \(fileName).xlsx")
     }
 
     var body: some View {
@@ -269,14 +257,12 @@ struct MoeblierungListView: View {
                 .disabled(assets.isEmpty)
             }
             ToolbarItem(placement: .secondaryAction) {
-                if !assets.isEmpty, let url = reportURL() {
-                    ShareLink("Möblierungsliste teilen (Steuerjahr \(String(reportYear)))", item: url)
+                if !assets.isEmpty {
+                    ExportShareLink("Möblierungsliste teilen (Steuerjahr \(String(reportYear)))", pdf: { reportURL() })
                 }
             }
             ToolbarItem(placement: .secondaryAction) {
-                if let url = xlsxExportURL {
-                    ShareLink("Als Excel-Tabelle exportieren (.xlsx)", item: url)
-                }
+                ExportShareLink("Als Excel-Tabelle exportieren (.xlsx)", spreadsheet: { xlsxExportURL })
             }
         }
         .sheet(isPresented: $showingAddSheet) {
@@ -359,7 +345,7 @@ struct MoeblierungListView: View {
 
     private func deleteAssets(in group: [DepreciableAsset], at offsets: IndexSet) {
         for index in offsets {
-            modelContext.delete(group[index])
+            DepreciableAsset.delete(group[index], context: modelContext)
         }
     }
 }

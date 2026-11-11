@@ -14,6 +14,7 @@ struct ExpenseListView: View {
     @State private var showingAddYearSheet = false
     @State private var showingReceiptScanImporter = false
     @State private var receiptScanPending: PendingReceiptScan?
+    @State private var busyMessage: String?
 
     /// Wenn gesetzt, zeigt diese Instanz nur dieses eine Jahr – für den Jahres-Unterreiter in der
     /// Seitenleiste. Ohne Vorgabe werden alle Jahre angezeigt.
@@ -95,6 +96,7 @@ struct ExpenseListView: View {
     private var maintenanceTotal: Double { amount(for: .maintenanceExpense, in: scopedExpenses) }
     private var otherDeductibleTotal: Double { amount(for: .otherDeductible, in: scopedExpenses) }
     private var capitalizedTotal: Double { amount(for: .capitalized, in: scopedExpenses) }
+    private var pendingReceiptCount: Int { scopedExpenses.filter(\.receiptPending).count }
 
     private var expensesInReportYear: [Expense] {
         expenses.filter { Calendar.current.component(.year, from: $0.date) == reportYear }
@@ -122,13 +124,7 @@ struct ExpenseListView: View {
             grandTotal: yearExpenses.reduce(0) { $0 + $1.amount }
         )
         guard let data = PDFExporter.renderPDF(size: ExpenseReportDocument.pageSize, content: { document }) else { return nil }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Ausgabenübersicht \(reportYear).pdf")
-        do {
-            try data.write(to: url, options: .atomic)
-            return url
-        } catch {
-            return nil
-        }
+        return try? ExportFileStore.write(data, fileName: "Ausgabenübersicht \(reportYear).pdf")
     }
 
     /// Excel-Export aller Ausgaben als echte `.xlsx`-Datei (für Excel/Steuerberater).
@@ -151,13 +147,7 @@ struct ExpenseListView: View {
             rows: rows
         )
         guard let data = XLSXExporter.data(sheets: [sheet]) else { return nil }
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("Ausgaben.xlsx")
-        do {
-            try data.write(to: url, options: .atomic)
-            return url
-        } catch {
-            return nil
-        }
+        return try? ExportFileStore.write(data, fileName: "Ausgaben.xlsx")
     }
 
     var body: some View {
@@ -195,6 +185,9 @@ struct ExpenseListView: View {
                         KPITile(title: "Herstellungskosten (AfA)", value: capitalizedTotal.asCurrency, systemImage: "chart.line.downtrend.xyaxis", valueColor: Theme.statusWarning)
                     }
                     KPITile(title: "Gesamtausgaben", value: totalAmount.asCurrency, systemImage: "eurosign.circle")
+                    if pendingReceiptCount > 0 {
+                        KPITile(title: "Belege noch nachzureichen", value: String(pendingReceiptCount), systemImage: "doc.text.magnifyingglass", valueColor: Theme.statusWarning)
+                    }
                 }
                 .listRowInsets(EdgeInsets())
                 .padding(.vertical, Theme.spacingS)
@@ -224,6 +217,11 @@ struct ExpenseListView: View {
                                         Label(expense.taxTreatment.shortLabel, systemImage: expense.taxTreatment.systemImage)
                                             .font(.caption2)
                                             .foregroundStyle(expense.taxTreatment.color)
+                                        if expense.receiptPending {
+                                            Label("Original-Beleg fehlt noch", systemImage: "exclamationmark.triangle")
+                                                .font(.caption2)
+                                                .foregroundStyle(Theme.statusWarning)
+                                        }
                                     }
                                     Spacer()
                                     Text(expense.amount.asCurrency)
@@ -279,14 +277,10 @@ struct ExpenseListView: View {
                 .disabled(expensesInReportYear.isEmpty)
             }
             ToolbarItem(placement: .secondaryAction) {
-                if let url = reportTemporaryURL() {
-                    ShareLink("Für Finanzamt als PDF exportieren (Steuerjahr \(String(reportYear)))", item: url)
-                }
+                ExportShareLink("Für Finanzamt als PDF exportieren (Steuerjahr \(String(reportYear)))", pdf: { reportTemporaryURL() })
             }
             ToolbarItem(placement: .secondaryAction) {
-                if let url = xlsxExportURL() {
-                    ShareLink("Als Excel-Tabelle exportieren (.xlsx)", item: url)
-                }
+                ExportShareLink("Als Excel-Tabelle exportieren (.xlsx)", spreadsheet: { xlsxExportURL() })
             }
             if fixedYear == nil {
                 ToolbarItem(placement: .secondaryAction) {
@@ -314,6 +308,7 @@ struct ExpenseListView: View {
             ReceiptScanReviewView(scanData: pending.data, scanFileExtension: pending.fileExtension, result: pending.result, fixedKind: .expense)
         }
         .quickLookPreview($pdfPreviewURL)
+        .busyOverlay(busyMessage)
         .overlay {
             if expenses.isEmpty {
                 ContentUnavailableView(
@@ -342,7 +337,13 @@ struct ExpenseListView: View {
             }
         }
         guard let data = try? Data(contentsOf: url) else { return }
-        receiptScanPending = PendingReceiptScan(data: data, fileExtension: url.pathExtension, result: ReceiptOCR.recognize(from: data))
+        let fileExtension = url.pathExtension
+        busyMessage = "Texterkennung läuft …"
+        Task {
+            let recognized = await BackgroundWork.run { ReceiptOCR.recognize(from: data) }
+            busyMessage = nil
+            receiptScanPending = PendingReceiptScan(data: data, fileExtension: fileExtension, result: recognized)
+        }
     }
 }
 

@@ -233,10 +233,19 @@ struct PaymentsOverviewView: View {
         }
         .swipeActions(edge: .leading) {
             if let payment, payment.isOverdue {
+                #if os(iOS)
+                Button {
+                    SharePresenter.present([mahnungText(tenancy: tenancy, payment: payment)])
+                } label: {
+                    Label("Mahnung", systemImage: "exclamationmark.bubble")
+                }
+                .tint(Theme.statusCritical)
+                #else
                 ShareLink(item: mahnungText(tenancy: tenancy, payment: payment)) {
                     Label("Mahnung", systemImage: "exclamationmark.bubble")
                 }
                 .tint(Theme.statusCritical)
+                #endif
             }
         }
     }

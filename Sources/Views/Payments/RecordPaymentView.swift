@@ -54,6 +54,8 @@ struct RecordPaymentView: View {
                     TextField("Notiz", text: $note, axis: .vertical)
                         .lineLimit(2...4)
                 }
+
+                ValidationMessagesSection(messages: validationMessages)
             }
             .navigationTitle("Zahlung erfassen")
             .toolbar {
@@ -62,6 +64,7 @@ struct RecordPaymentView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Sichern") { save() }
+                        .disabled(!validationMessages.isEmpty)
                 }
             }
             .onAppear(perform: loadExistingValues)
@@ -86,10 +89,18 @@ struct RecordPaymentView: View {
         }
     }
 
+    private var validationMessages: [String] {
+        [
+            FormValidation.number(coldRentDueText, "Kaltmiete"),
+            FormValidation.number(utilityAdvanceDueText, "Nebenkosten"),
+            isPaid ? FormValidation.number(paidAmountText, "Bezahlter Betrag") : nil
+        ].compactMap { $0 }
+    }
+
     private func save() {
-        let coldRentDue = Double(coldRentDueText.replacingOccurrences(of: ",", with: ".")) ?? 0
-        let utilityAdvanceDue = Double(utilityAdvanceDueText.replacingOccurrences(of: ",", with: ".")) ?? 0
-        let paidAmount = Double(paidAmountText.replacingOccurrences(of: ",", with: "."))
+        let coldRentDue = coldRentDueText.parsedDecimal ?? 0
+        let utilityAdvanceDue = utilityAdvanceDueText.parsedDecimal ?? 0
+        let paidAmount = paidAmountText.parsedDecimal
 
         let payment = existingPayment ?? {
             let newPayment = RentPayment(dueDate: month)

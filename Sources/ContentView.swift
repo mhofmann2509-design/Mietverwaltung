@@ -66,8 +66,8 @@ enum SidebarSelection: Hashable {
     case improvementsYear(Int)
     case furnitureProperty(Property)
     case furniturePropertyCoRented(Property)
-    case documentsUnit(Unit)
-    case documentsUtilityStatements
+    case documentsPropertyCategory(Property, DocumentCategory)
+    case documentFolder(DocumentFolder)
 }
 
 struct ContentView: View {
@@ -80,10 +80,8 @@ struct ContentView: View {
     @State private var improvementsExpanded = true
     @State private var furnitureExpanded = true
     @State private var documentsExpanded = true
-    @State private var documentsUnitsExpanded = true
     @Query(sort: \Property.name) private var properties: [Property]
     @Query(sort: \Tenant.lastName) private var tenants: [Tenant]
-    @Query(sort: \Unit.name) private var units: [Unit]
     @Query private var tenancies: [Tenancy]
     @Query private var expenses: [Expense]
     @Query private var depreciableAssets: [DepreciableAsset]
@@ -236,16 +234,16 @@ struct ContentView: View {
                     DisclosureGroup(isExpanded: $documentsExpanded) {
                         Label("Alle Dokumente", systemImage: "list.bullet")
                             .tag(SidebarSelection.section(.documents))
-                        DisclosureGroup(isExpanded: $documentsUnitsExpanded) {
-                            ForEach(units) { unit in
-                                Label("\(unit.property?.name ?? "") · \(unit.name)", systemImage: "door.left.hand.open")
-                                    .tag(SidebarSelection.documentsUnit(unit))
+                        ForEach(properties) { property in
+                            DisclosureGroup {
+                                ForEach(DocumentCategory.allCases) { category in
+                                    Label(category.label, systemImage: category.systemImage)
+                                        .tag(SidebarSelection.documentsPropertyCategory(property, category))
+                                }
+                            } label: {
+                                Label(sidebarPropertyLabel(property), systemImage: "building")
                             }
-                        } label: {
-                            Label("Wohnungen", systemImage: "building")
                         }
-                        Label("Abrechnungen", systemImage: "doc.text")
-                            .tag(SidebarSelection.documentsUtilityStatements)
                     } label: {
                         Label(SidebarSection.documents.label, systemImage: SidebarSection.documents.systemImage)
                     }
@@ -302,10 +300,10 @@ struct ContentView: View {
                     MoeblierungListView(property: property)
                 case .furniturePropertyCoRented(let property):
                     MoeblierungListView(property: property, onlyCoRented: true)
-                case .documentsUnit(let unit):
-                    DocumentListView(unit: unit)
-                case .documentsUtilityStatements:
-                    DocumentListView(onlyUtilityStatements: true)
+                case .documentsPropertyCategory(let property, let category):
+                    DocumentCategoryView(property: property, category: category)
+                case .documentFolder(let folder):
+                    DocumentListView(folder: folder)
                 }
                 }
                 // Zentral hier statt in den einzelnen Views deklariert: Property/Unit/UtilityStatement
@@ -321,6 +319,9 @@ struct ContentView: View {
                 }
                 .navigationDestination(for: UtilityStatement.self) { statement in
                     UtilityStatementDetailView(statement: statement)
+                }
+                .navigationDestination(for: DocumentFolder.self) { folder in
+                    DocumentListView(folder: folder)
                 }
             }
             .id(selection)

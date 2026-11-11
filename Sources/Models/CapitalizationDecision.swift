@@ -93,4 +93,15 @@ final class CapitalizationDecision {
 
         return decision
     }
+
+    /// Nimmt eine Aktivierung zurück, bevor ihr Wirtschaftsgut gelöscht wird: Die Quell-Ausgaben
+    /// werden wieder als Erhaltungsaufwand geführt – sonst blieben sie als `.capitalized` markiert
+    /// und würden weder als Werbungskosten abgezogen noch über die AfA berücksichtigt.
+    static func revert(_ decision: CapitalizationDecision, context: ModelContext) {
+        for expense in decision.sourceExpenses ?? [] {
+            expense.taxTreatment = .maintenanceExpense
+            expense.capitalizationDecision = nil
+        }
+        context.delete(decision)
+    }
 }

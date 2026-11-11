@@ -70,6 +70,11 @@ final class Expense {
     /// `amount` stillschweigend als Netto zu behandeln.
     var vatRatePercent: Double?
 
+    /// Gesetzt, solange zu dieser manuell erfassten Ausgabe noch kein Original-Beleg (Scan/PDF)
+    /// hinterlegt wurde – reine Erinnerung für den Nutzer, hat keinen Einfluss auf die
+    /// Berechnung. Wird beim Anhängen des ersten `Document` automatisch zurückgesetzt.
+    var receiptPending: Bool = false
+
     /// Datum der Fertigstellung/Leistungserbringung der Maßnahme, falls abweichend vom
     /// Rechnungsdatum (`date`) erfasst – maßgeblich für die zeitliche Zuordnung zum
     /// Dreijahreszeitraum der 15-%-Grenze (siehe `ThreeYearThresholdCase.candidateExpenses`),
@@ -92,6 +97,9 @@ final class Expense {
 
     @Relationship(deleteRule: .cascade, inverse: \Document.expense)
     var documents: [Document]? = []
+
+    @Relationship(deleteRule: .cascade, inverse: \ThresholdExpenseAssessment.expense)
+    var thresholdAssessments: [ThresholdExpenseAssessment]? = []
 
     /// Gesetzt, sobald diese Ausgabe im Rahmen einer bewussten, manuellen Entscheidung als
     /// Herstellungskosten aktiviert wurde (siehe `CapitalizationDecision`) – verhindert, dass
@@ -124,7 +132,7 @@ final class Expense {
     /// Aus `amount` (brutto) und `vatRatePercent` abgeleiteter Netto-Betrag – `nil`, wenn kein
     /// Umsatzsteuersatz hinterlegt ist, statt `amount` ungeprüft als Netto zu übernehmen.
     var netAmount: Double? {
-        guard let vatRatePercent else { return nil }
+        guard let vatRatePercent, vatRatePercent > -100 else { return nil }
         return amount / (1 + vatRatePercent / 100)
     }
 }

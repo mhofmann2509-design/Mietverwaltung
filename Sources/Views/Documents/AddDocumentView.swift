@@ -13,6 +13,8 @@ struct AddDocumentView: View {
     @State private var selectedProperty: Property?
     @State private var selectedUnit: Unit?
     @State private var selectedTenant: Tenant?
+    @State private var selectedCategory: DocumentCategory
+    private let initialFolder: DocumentFolder?
 
     @State private var pickedFileURL: URL?
     @State private var scannedImageData: Data?
@@ -26,12 +28,15 @@ struct AddDocumentView: View {
     @State private var taxTreatment: TaxTreatment = ExpenseCategory.other.defaultTaxTreatment
 
     @State private var showingFileImporter = false
+    @State private var saveErrorMessage: String?
     #if os(iOS)
     @State private var showingScanner = false
     #endif
 
-    init(initialProperty: Property? = nil) {
+    init(initialProperty: Property? = nil, initialCategory: DocumentCategory? = nil, initialFolder: DocumentFolder? = nil) {
         _selectedProperty = State(initialValue: initialProperty)
+        _selectedCategory = State(initialValue: initialFolder?.category ?? initialCategory ?? .propertyDocuments)
+        self.initialFolder = initialFolder
     }
 
     private var hasPickedSomething: Bool {
@@ -72,13 +77,30 @@ struct AddDocumentView: View {
 
                     TextField("Titel", text: $title)
                     DatePicker("Belegdatum", selection: $receiptDate, displayedComponents: .date)
+                    if let initialFolder {
+                        LabeledContent("Ordner", value: initialFolder.name)
+                    } else {
+                        Picker("Reiter", selection: $selectedCategory) {
+                            ForEach(DocumentCategory.allCases) { option in
+                                Label(option.label, systemImage: option.systemImage).tag(option)
+                            }
+                        }
+                    }
                 }
 
                 Section("Verknüpfung (optional)") {
-                    Picker("Immobilie", selection: $selectedProperty) {
-                        Text("Keine").tag(Optional<Property>.none)
-                        ForEach(properties) { property in
-                            Text(property.name).tag(Optional(property))
+                    if initialFolder != nil, let selectedProperty {
+                        // Die Immobilie ist durch den Ordner festgelegt – ein frei wählbarer Picker
+                        // könnte sonst ein Dokument anlegen, dessen Immobilie nicht zu dem Ordner
+                        // passt, in dem es abgelegt wird (der Ordner bestimmt den Reiter/die
+                        // Immobilie, in der es später gefunden wird).
+                        LabeledContent("Immobilie", value: selectedProperty.name.isEmpty ? selectedProperty.address : selectedProperty.name)
+                    } else {
+                        Picker("Immobilie", selection: $selectedProperty) {
+                            Text("Keine").tag(Optional<Property>.none)
+                            ForEach(properties) { property in
+                                Text(property.name).tag(Optional(property))
+                            }
                         }
                     }
                     if let selectedProperty {
@@ -99,6 +121,9 @@ struct AddDocumentView: View {
 
                 Section {
                     Toggle("Als Ausgabe erfassen (steuerlich)", isOn: $recordAsExpense)
+                        .onChange(of: recordAsExpense) { _, newValue in
+                            if newValue, initialFolder == nil { selectedCategory = .invoicesReceipts }
+                        }
                     if recordAsExpense {
                         TextField("Betrag (€)", text: $amountText)
                             #if os(iOS)
@@ -121,6 +146,8 @@ struct AddDocumentView: View {
                 } footer: {
                     Text("Belege werden nach Belegdatum sortiert und lassen sich für die Steuererklärung gebündelt wieder abrufen.")
                 }
+
+                ValidationMessagesSection(messages: validationMessages)
             }
             .navigationTitle("Beleg erfassen")
             .toolbar {
@@ -129,8 +156,13 @@ struct AddDocumentView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Sichern") { save() }
-                        .disabled(!hasPickedSomething)
+                        .disabled(!hasPickedSomething || !validationMessages.isEmpty)
                 }
+            }
+            .alert("Beleg konnte nicht gesichert werden", isPresented: Binding(get: { saveErrorMessage != nil }, set: { if !$0 { saveErrorMessage = nil } })) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(saveErrorMessage ?? "")
             }
             .fileImporter(isPresented: $showingFileImporter, allowedContentTypes: [.pdf, .image, .data]) { result in
                 handlePickedFile(result)
@@ -208,6 +240,11 @@ struct AddDocumentView: View {
         }
     }
 
+    private var validationMessages: [String] {
+        guard recordAsExpense else { return [] }
+        return [FormValidation.number(amountText, "Betrag", .positive, required: true)].compactMap { $0 }
+    }
+
     private func save() {
         let data: Data
         let fileName: String
@@ -220,7 +257,10 @@ struct AddDocumentView: View {
         } else if let pickedFileURL {
             let didStartAccessing = pickedFileURL.startAccessingSecurityScopedResource()
             defer { if didStartAccessing { pickedFileURL.stopAccessingSecurityScopedResource() } }
-            guard let fileData = try? Data(contentsOf: pickedFileURL) else { return }
+            guard let fileData = try? Data(contentsOf: pickedFileURL) else {
+                saveErrorMessage = "Die Datei „\(pickedFileURL.lastPathComponent)“ ist nicht mehr lesbar – z.B. weil das Laufwerk getrennt oder die iCloud-Datei noch nicht geladen wurde. Bitte die Datei erneut auswählen."
+                return
+            }
             data = fileData
             fileName = pickedFileURL.lastPathComponent
             fileExtension = fileExtensionOverride ?? pickedFileURL.pathExtension
@@ -232,10 +272,12 @@ struct AddDocumentView: View {
         document.property = selectedProperty
         document.unit = selectedUnit
         document.tenant = selectedTenant
+        document.folder = initialFolder
+        document.category = initialFolder?.category ?? selectedCategory
         modelContext.insert(document)
 
         if recordAsExpense {
-            let amount = Double(amountText.replacingOccurrences(of: ",", with: ".")) ?? 0
+            let amount = amountText.parsedDecimal ?? 0
             let expense = Expense(date: receiptDate, amount: amount, category: category, title: title, taxTreatment: taxTreatment)
             expense.property = selectedProperty
             expense.unit = selectedUnit

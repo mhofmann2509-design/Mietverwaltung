@@ -15,6 +15,7 @@ struct LandlordEditView: View {
     @State private var iban = ""
     @State private var bic = ""
     @State private var marginalTaxRateText = ""
+    @State private var usesTaxAdvisor = false
 
     var body: some View {
         NavigationStack {
@@ -55,11 +56,14 @@ struct LandlordEditView: View {
                         #if os(iOS)
                         .keyboardType(.decimalPad)
                         #endif
+                    Toggle("Steuererklärung durch Steuerberater", isOn: $usesTaxAdvisor)
                 } header: {
                     Text("Steuer")
                 } footer: {
-                    Text("Persönlicher Grenzsteuersatz (ggf. inkl. Soli/Kirchensteuer) zur Abschätzung der Steuerlast aus dem steuerlichen Ergebnis aller Immobilien.")
+                    Text("Persönlicher Grenzsteuersatz (ggf. inkl. Soli/Kirchensteuer) zur Abschätzung der Steuerlast aus dem steuerlichen Ergebnis aller Immobilien. Die Steuerberater-Angabe bestimmt die angezeigte gesetzliche Abgabefrist (§ 149 AO).")
                 }
+
+                ValidationMessagesSection(messages: validationMessages)
             }
             .navigationTitle("Vermieter bearbeiten")
             .toolbar {
@@ -68,6 +72,7 @@ struct LandlordEditView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Sichern") { save() }
+                        .disabled(!validationMessages.isEmpty)
                 }
             }
             .onAppear(perform: loadExistingValues)
@@ -82,10 +87,19 @@ struct LandlordEditView: View {
         street = landlord.street
         zipCode = landlord.zipCode
         city = landlord.city
+        email = landlord.email
         bankAccountHolder = landlord.bankAccountHolder
         iban = landlord.iban
         bic = landlord.bic
         marginalTaxRateText = String(landlord.marginalTaxRatePercent)
+        usesTaxAdvisor = landlord.usesTaxAdvisor
+    }
+
+    private var validationMessages: [String] {
+        [
+            FormValidation.required(name, "Name"),
+            FormValidation.number(marginalTaxRateText, "Grenzsteuersatz", .range(0...60))
+        ].compactMap { $0 }
     }
 
     private func save() {
@@ -93,10 +107,12 @@ struct LandlordEditView: View {
         landlord.street = street
         landlord.zipCode = zipCode
         landlord.city = city
+        landlord.email = email
         landlord.bankAccountHolder = bankAccountHolder
         landlord.iban = iban
         landlord.bic = bic
-        landlord.marginalTaxRatePercent = Double(marginalTaxRateText.replacingOccurrences(of: ",", with: ".")) ?? landlord.marginalTaxRatePercent
+        landlord.marginalTaxRatePercent = marginalTaxRateText.parsedDecimal ?? landlord.marginalTaxRatePercent
+        landlord.usesTaxAdvisor = usesTaxAdvisor
         dismiss()
     }
 }

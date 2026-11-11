@@ -1,6 +1,7 @@
 import Foundation
 import Vision
 import CoreGraphics
+import PDFKit
 #if os(iOS)
 import UIKit
 #else
@@ -59,6 +60,7 @@ enum OCRTextRecognizer {
     }
 
     private static func cgImage(from data: Data) -> CGImage? {
+        if let pdfImage = cgImage(fromPDF: data) { return pdfImage }
         #if os(iOS)
         guard let image = UIImage(data: data) else { return nil }
         return image.cgImage
@@ -67,5 +69,35 @@ enum OCRTextRecognizer {
         var rect = CGRect(origin: .zero, size: image.size)
         return image.cgImage(forProposedRect: &rect, context: nil, hints: nil)
         #endif
+    }
+
+    /// Rendert die erste Seite eines PDFs in eine Bitmap, damit auch eingescannte/exportierte
+    /// PDF-Belege (nicht nur Fotos) per Vision erkannt werden können – `UIImage`/`NSImage` können
+    /// PDF-Daten nicht direkt als Bild dekodieren, sonst bliebe die Texterkennung bei PDF-Belegen
+    /// stillschweigend leer.
+    private static func cgImage(fromPDF data: Data) -> CGImage? {
+        guard let pdfDocument = PDFDocument(data: data), let page = pdfDocument.page(at: 0) else { return nil }
+        let pageBounds = page.bounds(for: .mediaBox)
+        guard pageBounds.width > 0, pageBounds.height > 0 else { return nil }
+
+        let scale: CGFloat = 3
+        let pixelSize = CGSize(width: pageBounds.width * scale, height: pageBounds.height * scale)
+        guard let colorSpace = CGColorSpace(name: CGColorSpace.sRGB),
+              let context = CGContext(
+                data: nil,
+                width: Int(pixelSize.width),
+                height: Int(pixelSize.height),
+                bitsPerComponent: 8,
+                bytesPerRow: 0,
+                space: colorSpace,
+                bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+              ) else { return nil }
+
+        context.setFillColor(CGColor(red: 1, green: 1, blue: 1, alpha: 1))
+        context.fill(CGRect(origin: .zero, size: pixelSize))
+        context.scaleBy(x: scale, y: scale)
+        page.draw(with: .mediaBox, to: context)
+
+        return context.makeImage()
     }
 }

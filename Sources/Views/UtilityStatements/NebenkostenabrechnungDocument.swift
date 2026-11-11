@@ -134,19 +134,19 @@ struct NebenkostenabrechnungDocument: View {
                     GridRow {
                         Text(item.type)
                         Text(allocationKeyDetail)
-                        Text(currency(item.amount))
+                        Text(item.amount.asCurrency)
                     }
                 }
                 GridRow {
                     Text("Grundsteuer")
                     Text(allocationKeyDetail)
-                    Text(currency(propertyTaxAmount))
+                    Text(propertyTaxAmount.asCurrency)
                 }
                 GridRow { Divider().padding(.vertical, 2).gridCellColumns(3) }
                 GridRow {
                     Text("Umlagefähige Gesamtkosten").fontWeight(.semibold)
                     Text("")
-                    Text(currency(apportionableTotal)).fontWeight(.semibold)
+                    Text(apportionableTotal.asCurrency).fontWeight(.semibold)
                 }
             }
             .font(.system(size: 11))
@@ -155,11 +155,11 @@ struct NebenkostenabrechnungDocument: View {
             Divider().padding(.vertical, 2)
 
             VStack(alignment: .leading, spacing: 6) {
-                row(left: "Ihr Anteil", right: currency(allocatedShare))
-                row(left: "Geleistete Vorauszahlungen", right: currency(advancesPaid))
+                row(left: "Ihr Anteil", right: allocatedShare.asCurrency)
+                row(left: "Geleistete Vorauszahlungen", right: advancesPaid.asCurrency)
                 row(
                     left: isPayment ? "Nachzahlung" : "Guthaben zu Ihren Gunsten",
-                    right: currency(abs(difference)),
+                    right: abs(difference).asCurrency,
                     bold: true,
                     color: isPayment ? Color(red: 0.75, green: 0.1, blue: 0.1) : Color(red: 0.1, green: 0.5, blue: 0.2)
                 )
@@ -218,14 +218,6 @@ struct NebenkostenabrechnungDocument: View {
 
     private var introText: String {
         "im Rahmen der Betriebskostenabrechnung übersenden wir Ihnen die Abrechnung der umlagefähigen Betriebskosten für Ihre Wohnung \(unitName) für den oben genannten Abrechnungszeitraum. Die Einzelpositionen sowie die Berechnung Ihres Anteils entnehmen Sie bitte der folgenden Aufstellung."
-    }
-
-    private func currency(_ value: Double) -> String {
-        let formatter = NumberFormatter()
-        formatter.numberStyle = .currency
-        formatter.currencySymbol = "€"
-        formatter.locale = Locale(identifier: "de_DE")
-        return formatter.string(from: NSNumber(value: value)) ?? "\(value) €"
     }
 
     @ViewBuilder
