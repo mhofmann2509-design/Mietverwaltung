@@ -83,9 +83,9 @@ struct RecordPaymentView: View {
             paidAmountText = existingPayment.paidAmount.map { String($0) } ?? ""
             note = existingPayment.note
         } else {
-            coldRentDueText = String(tenancy.coldRent)
+            coldRentDueText = String(tenancy.coldRent(forMonthContaining: month))
             utilityAdvanceDueText = String(tenancy.utilityAdvance)
-            paidAmountText = String(tenancy.totalMonthlyAmount)
+            paidAmountText = String(tenancy.totalMonthlyAmount(forMonthContaining: month))
         }
     }
 

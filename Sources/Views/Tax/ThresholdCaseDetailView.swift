@@ -83,7 +83,7 @@ struct ThresholdCaseDetailView: View {
                 } header: {
                     Text("Aktivierung als Herstellungskosten")
                 } footer: {
-                    Text("Überträgt die ausgewählten Positionen bewusst und nachvollziehbar in die AfA-Bemessungsgrundlage (neues Wirtschaftsgut, Gebäude-AfA-Satz) – keine automatische Entscheidung. Die Ausgaben scheiden danach aus künftigen 15-%-Prüfungen aus.")
+                    Text("Überträgt die ausgewählten Positionen bewusst und nachvollziehbar in die AfA-Bemessungsgrundlage (je Kalenderjahr ein Wirtschaftsgut, Gebäude-AfA-Satz) – keine automatische Entscheidung. Die Ausgaben zählen weiterhin zur 15-%-Summe, werden aber nicht mehr als Erhaltungsaufwand abgezogen.")
                 }
             }
 

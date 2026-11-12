@@ -110,33 +110,37 @@ final class RemainingUsefulLifeAppraisal {
         20: Coefficients(a: 0.2000, b: 0.4400, c: 0.9420, thresholdPercent: 10),
     ]
 
-    /// Restnutzungsdauer (RND) in Jahren nach dem vereinfachten Modernisierungsmodell der
-    /// Anlage 2 ImmoWertV. Unterhalb der modellspezifischen Alters-Schwelle gilt die einfache
-    /// Formel RND = Gesamtnutzungsdauer − Alter; oberhalb greift die daran stetig anschließende
-    /// quadratische Modellformel RND = a·Alter²/GND − b·Alter + c·GND. Die RND wird auf höchstens
-    /// 70 % (bei Kernsanierung 90 %) der Gesamtnutzungsdauer begrenzt.
+    /// Restnutzungsdauer (RND) in Jahren nach Anlage 2 ImmoWertV (Koeffizienten aus Tabelle 3,
+    /// abgeglichen mit dem amtlichen Text). Unterhalb der Alters-Schwelle aus Tabelle 3 gilt laut
+    /// Verordnung RND = Gesamtnutzungsdauer − Alter. Ab der Schwelle greift die Modellformel
+    /// RND = a·Alter²/GND − b·Alter + c·GND, wobei Modernisierung die RND laut Verordnung auf
+    /// höchstens 70 % der GND „streckt“ (bei Kernsanierung bis zu 90 %, dann zählt außerdem das
+    /// Sanierungsjahr als Baujahr). Auslegung: Die Grenze begrenzt nur die Verlängerung durch
+    /// Modernisierung – die RND sinkt nie unter GND − Alter, sonst entstünde an der Schwelle ein
+    /// Sprung nach unten (8 Punkte, 20 % Alter: 80 statt 70 Jahre).
     var remainingUsefulLifeYears: Double {
         guard totalUsefulLifeYears > 0 else { return 0 }
         let points = min(20, max(0, totalModernizationPoints))
         let coefficients = Self.coefficientTable[points] ?? Self.coefficientTable[0]!
+        let capPercent = isCoreRenovation ? 0.9 : 0.7
+        let plainRND = totalUsefulLifeYears - ageYears
 
-        let rawRND: Double
+        let rnd: Double
         if relativeAgePercent < coefficients.thresholdPercent {
-            rawRND = totalUsefulLifeYears - ageYears
+            rnd = isCoreRenovation ? min(plainRND, totalUsefulLifeYears * capPercent) : plainRND
         } else {
-            rawRND = coefficients.a * ageYears * ageYears / totalUsefulLifeYears
+            let modelRND = coefficients.a * ageYears * ageYears / totalUsefulLifeYears
                 - coefficients.b * ageYears
                 + coefficients.c * totalUsefulLifeYears
+            rnd = max(plainRND, min(modelRND, totalUsefulLifeYears * capPercent))
         }
-
-        let capPercent = isCoreRenovation ? 0.9 : 0.7
-        let cappedRND = min(rawRND, totalUsefulLifeYears * capPercent)
-        return max(1, cappedRND)
+        return max(1, rnd)
     }
 
-    /// Aus der RND abgeleiteter linearer AfA-Satz (100 / RND), gerundet auf eine Nachkommastelle.
+    /// Aus der RND abgeleiteter linearer AfA-Satz (100 / RND) – ungerundet, da er direkt in die
+    /// AfA-Berechnung eingeht; gerundet wird nur bei der Anzeige.
     var suggestedAfaRatePercent: Double {
         guard remainingUsefulLifeYears > 0 else { return 0 }
-        return (100 / remainingUsefulLifeYears * 10).rounded() / 10
+        return 100 / remainingUsefulLifeYears
     }
 }

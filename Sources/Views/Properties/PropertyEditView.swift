@@ -265,7 +265,7 @@ struct PropertyEditView: View {
                 #if os(iOS)
                 .keyboardType(.numberPad)
                 #endif
-            TextField("Eigentumsanteil (%, z.B. bei Miteigentum/Erbengemeinschaft)", text: $ownershipSharePercentText)
+            TextField("Eigener Anteil bei Miteigentum (%, nicht MEA einer ETW)", text: $ownershipSharePercentText)
                 #if os(iOS)
                 .keyboardType(.decimalPad)
                 #endif

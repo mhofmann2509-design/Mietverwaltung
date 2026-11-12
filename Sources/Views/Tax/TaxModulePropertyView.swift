@@ -320,7 +320,7 @@ struct TaxModulePropertyView: View {
                 }
                 LabeledContent("Homeoffice-Pauschale (anteilig)", value: property.homeOfficeAllowance(forYear: selectedYear).asCurrency)
                 if HomeOfficeAllocation.isCapExceeded(for: property, taxYear: selectedYear) {
-                    Text("210-Tage-/1.260-€-Grenze über alle Immobilien hinweg erreicht – Pauschale bereits anteilig gedeckelt.")
+                    Text("\(HomeOfficeAllocation.cappedDays(forYear: selectedYear))-Tage-/\(HomeOfficeAllocation.annualCapAmount(forYear: selectedYear).asCurrency)-Grenze über alle Immobilien hinweg erreicht – Pauschale bereits anteilig gedeckelt.")
                         .font(.caption)
                         .foregroundStyle(Theme.statusWarning)
                 }

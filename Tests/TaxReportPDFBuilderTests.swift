@@ -3,6 +3,8 @@ import SwiftData
 import PDFKit
 @testable import Mietverwaltung
 
+private typealias Unit = Mietverwaltung.Unit
+
 /// Tests für `TaxReportPDFBuilder` – bisher nur indirekt über die Modellrechnungen abgedeckt,
 /// nie direkt auf Kapitel-Ebene. `PDFExporter.renderPDF` zeichnet Text direkt in den PDF-Kontext
 /// statt ihn zu rastern (siehe Kommentar dort) – die erzeugten PDFs sind also durchsuchbar, und
@@ -138,6 +140,43 @@ final class TaxReportPDFBuilderTests: XCTestCase {
             XCTAssertTrue(text.contains(expected), "Erwartete Einzelposition „\(expected)“ fehlt in der aufgeschlüsselten AfA-Herleitung.")
         }
         XCTAssertFalse(text.contains("Anschaffungsnebenkosten (Summe)"), "Bei gepflegten Einzelposten darf die alte Summenzeile nicht zusätzlich erscheinen.")
+    }
+
+    /// Die Grunderwerbsteuer fehlte bisher in der aufgeschlüsselten AfA-Herleitung – die Einzelposten
+    /// summierten sich dann nicht zur ausgewiesenen Gesamtsumme.
+    func testAfaHerleitungListsGrunderwerbsteuerWhenItemized() throws {
+        let (property, _, _) = try makePropertyWithThresholdCase()
+        property.purchaseTransferTaxCosts = 19_500
+        property.purchaseNotaryCosts = 4_500
+        property.purchaseAncillaryCosts = 24_000
+
+        let (url, _) = TaxReportPDFBuilder.build(property: property, kind: .standaloneAfa(taxYear: 2023))
+        let text = try extractText(from: url)
+        XCTAssertTrue(text.contains("Grunderwerbsteuer"))
+        XCTAssertFalse(text.contains("Sonstige Nebenkosten"), "Grunderwerbsteuer + Notar decken die Summe vollständig.")
+    }
+
+    func testAnlageVShowsUmlagenAsIncome() throws {
+        let (property, _, _) = try makePropertyWithThresholdCase()
+        let unit = Unit(name: "EG")
+        unit.property = property
+        context.insert(unit)
+        let tenancy = Tenancy(startDate: calendarDate(2023, 1, 1), coldRent: 1_000, utilityAdvance: 200)
+        tenancy.unit = unit
+        context.insert(tenancy)
+
+        let (url, _) = TaxReportPDFBuilder.build(property: property, kind: .ongoing(taxYear: 2023))
+        let text = try extractText(from: url)
+        XCTAssertTrue(text.contains("Umlagen"))
+        XCTAssertTrue(text.contains("2.400,00"), "12 × 200 € Nebenkostenvorauszahlung")
+        XCTAssertTrue(text.contains("ohne erfasste Zahlung"), "Soll-Ansatz ohne Zahlungseingänge muss gekennzeichnet sein")
+    }
+
+    func testReportWarnsAboutMissingLandValue() throws {
+        let (property, _, _) = try makePropertyWithThresholdCase()
+        property.landValue = 0
+        let (_, warnings) = TaxReportPDFBuilder.build(property: property, kind: .standaloneAfa(taxYear: 2023))
+        XCTAssertTrue(warnings.contains { $0.contains("Bodenwert nicht erfasst") })
     }
 
     func testAfaHerleitungFitsOnOnePageEvenWithItemizedAncillaryCosts() throws {

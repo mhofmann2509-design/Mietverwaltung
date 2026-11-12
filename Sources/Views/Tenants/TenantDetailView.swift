@@ -56,7 +56,7 @@ struct TenantDetailView: View {
                                 Text("\(tenancy.startDate.asShortDate) – \(tenancy.endDate?.asShortDate ?? "laufend")")
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
-                                Text(tenancy.totalMonthlyAmount.asCurrency + "/Monat")
+                                Text(tenancy.totalMonthlyAmount(forMonthContaining: .now).asCurrency + "/Monat")
                                     .font(.caption)
                             }
                             Spacer()

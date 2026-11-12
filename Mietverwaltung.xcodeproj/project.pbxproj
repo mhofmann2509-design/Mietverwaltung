@@ -13,6 +13,7 @@
 		05152EA280D7FBD68E5008A7 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = 9094A2DD8D827F2F8C1A7696 /* ZIPFoundation */; };
 		0537739F8D05ECB4A160EBAF /* ExportFile.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCD37386F4D459FE0866F2F3 /* ExportFile.swift */; };
 		059787139A4866D92119D425 /* TravelExpense.swift in Sources */ = {isa = PBXBuildFile; fileRef = BA44B0CD56953B75709D6B93 /* TravelExpense.swift */; };
+		066421DBC257FA5349940BD8 /* TaxCorrectionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5430DBFC354F9E5FB8DCDCAC /* TaxCorrectionTests.swift */; };
 		074550A0F993F948A7BBA4FA /* PortfolioMetrics.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA48550870CE2D2873CE4518 /* PortfolioMetrics.swift */; };
 		08F107F610983A301C17FEF9 /* ZIPFoundation in Frameworks */ = {isa = PBXBuildFile; productRef = D78EF18A4A6B81844E7CA3F1 /* ZIPFoundation */; };
 		09B30EFD7C619864B78367A9 /* HerstellungskostenListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 15189EADC2B405B6DC00E191 /* HerstellungskostenListView.swift */; };
@@ -67,6 +68,7 @@
 		3F92FFE5775900F9B9F3D2BB /* UtilityStatementDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B54988AD6535AE686A6B26DA /* UtilityStatementDetailView.swift */; };
 		400F634B3233DD08F52A7113 /* AssetReportDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4383B4909A098895B0D84BDE /* AssetReportDocument.swift */; };
 		4190CD33ED4605027E1FBA14 /* TilgungsplanReportDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5210130F5057935FE97B8683 /* TilgungsplanReportDocument.swift */; };
+		41B7836544E406D0AA06DCB8 /* AnlageVCalculation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 565599BDEB0813782B57D066 /* AnlageVCalculation.swift */; };
 		42AEB887CC675AED3791D264 /* Formatters.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1C3D585BAF64CAEA2275932E /* Formatters.swift */; };
 		42AF321F954E61A91BFD5877 /* TaxCalculationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E909935DAD808EDFFC0FF3B5 /* TaxCalculationTests.swift */; };
 		42CD801ADFECFBB415847FB0 /* CapitalizationDecision.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5C3899F99749AD800F2D8BE2 /* CapitalizationDecision.swift */; };
@@ -173,6 +175,7 @@
 		BAA44ADD8583884025E2CDD2 /* CSVImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8BA665915E9375E47FF9D05 /* CSVImporter.swift */; };
 		BBBA6E6D76723A569C37860A /* TaxModulePropertyView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7F171D1107AEDF464479133 /* TaxModulePropertyView.swift */; };
 		BC88F8698FD467E27CF4594C /* DocumentCameraScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24E214074D6DE94F4443707E /* DocumentCameraScanner.swift */; };
+		BEE2139CC2C3D3561B23A81F /* AnlageVCalculation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 565599BDEB0813782B57D066 /* AnlageVCalculation.swift */; };
 		BF359D95F49BE4C6190BFF43 /* HomeOfficeAllocation.swift in Sources */ = {isa = PBXBuildFile; fileRef = C0F9B248F91EB9AA8801723E /* HomeOfficeAllocation.swift */; };
 		C2DC6BA63DF31323FD77F195 /* GesamtuebersichtReportDocument.swift in Sources */ = {isa = PBXBuildFile; fileRef = B704F83BB3F5986B7E6B6A17 /* GesamtuebersichtReportDocument.swift */; };
 		C41C876D7C8C84AC3CD3C88C /* Document.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9B0037A9A281C32343AE789F /* Document.swift */; };
@@ -299,7 +302,9 @@
 		5210130F5057935FE97B8683 /* TilgungsplanReportDocument.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TilgungsplanReportDocument.swift; sourceTree = "<group>"; };
 		52EF6FE5946D5BFCBE6B2B20 /* DemoSeeder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DemoSeeder.swift; sourceTree = "<group>"; };
 		5318A62A7AE23B7B08947B21 /* Mietverwaltung-macOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Mietverwaltung-macOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		5430DBFC354F9E5FB8DCDCAC /* TaxCorrectionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TaxCorrectionTests.swift; sourceTree = "<group>"; };
 		54884C5C52A790E58AD5B9AA /* LineItemDraft.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LineItemDraft.swift; sourceTree = "<group>"; };
+		565599BDEB0813782B57D066 /* AnlageVCalculation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AnlageVCalculation.swift; sourceTree = "<group>"; };
 		5845FDF7EBB418C15207892C /* Tenancy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Tenancy.swift; sourceTree = "<group>"; };
 		5B12C5724FD446F6F412C964 /* PropertyListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PropertyListView.swift; sourceTree = "<group>"; };
 		5C3899F99749AD800F2D8BE2 /* CapitalizationDecision.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CapitalizationDecision.swift; sourceTree = "<group>"; };
@@ -494,6 +499,7 @@
 		4FD9B9A4842AF1145BACC590 /* Support */ = {
 			isa = PBXGroup;
 			children = (
+				565599BDEB0813782B57D066 /* AnlageVCalculation.swift */,
 				96299BB4EEECA270DA251156 /* BackgroundWork.swift */,
 				320712B3D95931983E4D95A9 /* CalendarEventManager.swift */,
 				C95D2177263AF503DEBC4C42 /* Components.swift */,
@@ -647,6 +653,7 @@
 				A8C9E922AB6277172671EF07 /* PortfolioAndReceiptTests.swift */,
 				A0C90CF322CEC50BA670370E /* RemindersEngineTests.swift */,
 				E909935DAD808EDFFC0FF3B5 /* TaxCalculationTests.swift */,
+				5430DBFC354F9E5FB8DCDCAC /* TaxCorrectionTests.swift */,
 				182E6CC7EB429331BC0F98F3 /* TaxReportPDFBuilderTests.swift */,
 				D2052E316BFC6C57EFF2C2A0 /* UtilityAllocationCalculatorTests.swift */,
 				CF109A05CC3B02000E4F919F /* XLSXImporterTests.swift */,
@@ -802,6 +809,7 @@
 				A5294E9B1C53019F203A6307 /* PortfolioAndReceiptTests.swift in Sources */,
 				3F2E1C2489ED7CF0F105B993 /* RemindersEngineTests.swift in Sources */,
 				42AF321F954E61A91BFD5877 /* TaxCalculationTests.swift in Sources */,
+				066421DBC257FA5349940BD8 /* TaxCorrectionTests.swift in Sources */,
 				6BB1E8F9BBEBC3CF026B2DC0 /* TaxReportPDFBuilderTests.swift in Sources */,
 				2E1FE692B4A74501579A3204 /* UtilityAllocationCalculatorTests.swift in Sources */,
 				F9A010A90B53D92F11DDF2E3 /* XLSXImporterTests.swift in Sources */,
@@ -815,6 +823,7 @@
 				DDEB092AC336BF7D43F52F61 /* AddDocumentView.swift in Sources */,
 				9065B317B9375C26D89FBF33 /* AddYearView.swift in Sources */,
 				A46561ED1BDCC84CA81A892F /* AllocationMethod.swift in Sources */,
+				41B7836544E406D0AA06DCB8 /* AnlageVCalculation.swift in Sources */,
 				276C552E1F07DD1D0AF5F19A /* AppSchema.swift in Sources */,
 				2FF325C36B2822E53CF10E86 /* AppearanceSettingsView.swift in Sources */,
 				73EBFF6EDC515ED114A927BC /* AssetReportDocument.swift in Sources */,
@@ -932,6 +941,7 @@
 				5A7A236B31FD8F4BEE034F2A /* AddDocumentView.swift in Sources */,
 				F2BBFB9561C51187BF23C667 /* AddYearView.swift in Sources */,
 				E2AAAD12883B3B9F3DEC6D7A /* AllocationMethod.swift in Sources */,
+				BEE2139CC2C3D3561B23A81F /* AnlageVCalculation.swift in Sources */,
 				3F198EFCA9A5D21A50452705 /* AppSchema.swift in Sources */,
 				D261D44259E2E894A4F45370 /* AppearanceSettingsView.swift in Sources */,
 				400F634B3233DD08F52A7113 /* AssetReportDocument.swift in Sources */,

@@ -90,6 +90,60 @@ final class Tenancy {
         coldRent + utilityAdvance
     }
 
+    /// Kaltmiete des Monats, der `date` enthält. Bei einer Staffelmiete gilt die zuletzt wirksam
+    /// gewordene Stufe – eine Stufe zählt ab dem ersten vollen Monat ab ihrem Datum (übliche
+    /// Vereinbarung: Stufe zum Monatsersten); vor der ersten Stufe und bei anderen Vertragsarten
+    /// die vereinbarte Kaltmiete.
+    func coldRent(forMonthContaining date: Date) -> Double {
+        guard contractType == .staffel, let steps = rentSteps, !steps.isEmpty else { return coldRent }
+        let calendar = Calendar.current
+        guard let monthStart = calendar.date(from: calendar.dateComponents([.year, .month], from: date)) else { return coldRent }
+        let applicable = steps
+            .filter { calendar.startOfDay(for: $0.effectiveDate) <= monthStart }
+            .max { $0.effectiveDate < $1.effectiveDate }
+        return applicable?.coldRent ?? coldRent
+    }
+
+    func totalMonthlyAmount(forMonthContaining date: Date) -> Double {
+        coldRent(forMonthContaining: date) + utilityAdvance
+    }
+
+    /// Ob das Mietverhältnis an mindestens einem Tag des Monats von `monthStart` lief.
+    private func overlapsMonth(startingAt monthStart: Date) -> Bool {
+        let calendar = Calendar.current
+        guard let monthEnd = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: monthStart) else { return false }
+        let start = calendar.startOfDay(for: startDate)
+        let end = endDate.map { calendar.startOfDay(for: $0) } ?? .distantFuture
+        return start <= monthEnd && end >= monthStart
+    }
+
+    /// Im Kalenderjahr zugeflossene Kaltmiete und Nebenkostenvorauszahlungen für die Anlage V,
+    /// zugeordnet nach Fälligkeitsmonat. Monate mit erfasster Zahlung zählen mit dem tatsächlich
+    /// gezahlten Betrag (eine Teilzahlung wird im Verhältnis Kaltmiete/Vorauszahlung aufgeteilt),
+    /// erfasste, aber unbezahlte Monate mit 0. Monate ganz ohne Zahlungseintrag werden mit dem
+    /// Soll angesetzt und in `estimatedMonths` gezählt, damit der Bericht darauf hinweisen kann.
+    func receivedRent(inYear year: Int) -> (coldRent: Double, utilityAdvances: Double, estimatedMonths: Int) {
+        let calendar = Calendar.current
+        var cold = 0.0
+        var utility = 0.0
+        var estimated = 0
+        for month in 1...12 {
+            guard let monthStart = calendar.date(from: DateComponents(year: year, month: month, day: 1)),
+                  overlapsMonth(startingAt: monthStart) else { continue }
+            if let payment = payment(forMonthContaining: monthStart) {
+                guard payment.isPaid, payment.totalDue > 0 else { continue }
+                let paid = payment.paidAmount ?? payment.totalDue
+                cold += paid * payment.coldRentDue / payment.totalDue
+                utility += paid * payment.utilityAdvanceDue / payment.totalDue
+            } else {
+                cold += coldRent(forMonthContaining: monthStart)
+                utility += utilityAdvance
+                estimated += 1
+            }
+        }
+        return (cold, utility, estimated)
+    }
+
     var isActive: Bool {
         let today = Calendar.current.startOfDay(for: .now)
         guard let endDate else { return startDate <= today }
@@ -140,16 +194,18 @@ final class Tenancy {
     /// die Dashboard-Kennzahl je gewähltem Zeitraum, damit beide dieselbe Zahl zeigen.
     func coldRentContribution(from rangeStart: Date, to rangeEnd: Date) -> Double {
         let calendar = Calendar.current
-        func monthIndex(_ date: Date) -> Int {
-            let components = calendar.dateComponents([.year, .month], from: date)
-            return (components.year ?? 0) * 12 + (components.month ?? 0)
-        }
         let tenancyEnd = endDate ?? rangeEnd
         let overlapStart = max(startDate, rangeStart)
         let overlapEnd = min(tenancyEnd, rangeEnd)
-        guard overlapStart <= overlapEnd else { return 0 }
-        let months = monthIndex(overlapEnd) - monthIndex(overlapStart) + 1
-        return coldRent * Double(months)
+        guard overlapStart <= overlapEnd,
+              var month = calendar.date(from: calendar.dateComponents([.year, .month], from: overlapStart)) else { return 0 }
+        var sum = 0.0
+        while month <= overlapEnd {
+            sum += coldRent(forMonthContaining: month)
+            guard let next = calendar.date(byAdding: .month, value: 1, to: month) else { break }
+            month = next
+        }
+        return sum
     }
 
     /// Laufender Saldo des Mietrückstandskontos zu einem Stichtag: Summe aus Soll minus Ist über
@@ -166,7 +222,7 @@ final class Tenancy {
         var balance = 0.0
         while year < endYear || (year == endYear && month <= endMonth) {
             if let monthDate = calendar.date(from: DateComponents(year: year, month: month, day: 1)), isRunning(on: monthDate) {
-                let due = totalMonthlyAmount
+                let due = totalMonthlyAmount(forMonthContaining: monthDate)
                 let payment = payment(forMonthContaining: monthDate)
                 let paid = (payment?.isPaid == true) ? (payment?.paidAmount ?? due) : 0
                 balance += (due - paid)

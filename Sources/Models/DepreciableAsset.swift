@@ -57,6 +57,10 @@ final class DepreciableAsset {
     /// unabhängig davon, ob es überhaupt einer Einheit zugeordnet ist.
     var isCoRented: Bool = false
 
+    /// Umsatzsteuersatz der Anschaffung, nur für die GWG-Prüfung (Grenze netto). `nil` = nicht
+    /// erfasst; dann werden 19 % angenommen, bei gebraucht erworbenen Gütern 0 % (privater Kauf).
+    var vatRatePercent: Double?
+
     var property: Property?
     var unit: Unit?
 
@@ -108,14 +112,21 @@ final class DepreciableAsset {
     }
 
     /// Grenze für geringwertige Wirtschaftsgüter (GWG) nach §6 Abs. 2 EStG: bewegliche,
-    /// selbständig nutzbare Wirtschaftsgüter bis 800 € (netto) dürfen im Jahr der Anschaffung
-    /// sofort in voller Höhe abgezogen werden, statt über die Nutzungsdauer verteilt zu werden.
-    /// Vereinfachung: `depreciationBasis` wird hier als Nettobetrag behandelt; Herstellungskosten
-    /// am Gebäude (Kategorie `.improvement`) fallen nicht unter die GWG-Regelung.
+    /// selbständig nutzbare Wirtschaftsgüter, deren Anschaffungskosten „vermindert um einen darin
+    /// enthaltenen Vorsteuerbetrag“ 800 € nicht übersteigen, dürfen im Anschaffungsjahr sofort
+    /// abgezogen werden – geprüft wird also netto, abgezogen wird (ohne Vorsteuerabzug) brutto.
+    /// Herstellungskosten am Gebäude (Kategorie `.improvement`) fallen nicht unter die GWG-Regelung.
     static let gwgThreshold: Double = 800
 
+    /// Für die GWG-Grenze maßgeblicher Nettobetrag, siehe `vatRatePercent`.
+    var gwgNetBasis: Double {
+        let rate = vatRatePercent ?? (isUsed ? 0 : 19)
+        guard rate > -100 else { return depreciationBasis }
+        return depreciationBasis / (1 + rate / 100)
+    }
+
     var isImmediatelyDeductible: Bool {
-        category != .improvement && depreciationBasis > 0 && depreciationBasis <= Self.gwgThreshold
+        category != .improvement && depreciationBasis > 0 && (gwgNetBasis * 100).rounded() <= Self.gwgThreshold * 100
     }
 
     /// Kalenderjahr des Sofortabzugs (GWG), sofern zutreffend.
@@ -145,33 +156,39 @@ final class DepreciableAsset {
         return depreciationBasis / Double(usefulLifeYears)
     }
 
-    /// Abschreibung für ein bestimmtes Kalenderjahr: bei GWG die vollen Kosten einmalig im
-    /// Anschaffungsjahr, bei Herstellungskosten mit dem Gebäude-AfA-Satz (ohne Enddatum, wie die
-    /// Gebäude-AfA selbst), sonst linear über die Nutzungsdauer – jeweils im Anschaffungsjahr
-    /// monatsgenau anteilig.
+    /// Abschreibung für ein bestimmtes Kalenderjahr:
+    /// - GWG: die vollen Kosten einmalig im Anschaffungsjahr.
+    /// - Bewegliche Wirtschaftsgüter: linear, im Anschaffungsjahr monatsgenau (§ 7 Abs. 1 Satz 4
+    ///   EStG); der im ersten Jahr nicht abgeschriebene Rest fällt in das Jahr nach Ablauf der
+    ///   Nutzungsdauer (6.000 € / 10 Jahre ab Juli 2020: 300 € in 2020 und 2030).
+    /// - Herstellungskosten am Gebäude (`usesBuildingAfaRate`): mit dem Gebäude-AfA-Satz; im Jahr
+    ///   ihrer Entstehung so, als wären sie zu Jahresbeginn angefallen (R 7.4 Abs. 9 Satz 3 EStR) –
+    ///   im Anschaffungsjahr des Gebäudes aber erst ab dessen AfA-Beginn. Endet, sobald die
+    ///   Kosten vollständig abgeschrieben sind.
     func depreciation(forYear year: Int) -> Double {
         if isImmediatelyDeductible {
             return year == immediateDeductionYear ? depreciationBasis : 0
         }
+        let startYear = Calendar.current.component(.year, from: placedInServiceDate)
+        guard year >= startYear else { return 0 }
+        if usesBuildingAfaRate {
+            let depreciatedBefore = (startYear..<year).reduce(0.0) { $0 + uncappedBuildingRateDepreciation(forYear: $1) }
+            return max(0, min(uncappedBuildingRateDepreciation(forYear: year), depreciationBasis - depreciatedBefore))
+        }
+        guard usefulLifeYears > 0 else { return 0 }
+        let startMonth = Calendar.current.component(.month, from: placedInServiceDate)
+        let firstMonthIndex = startYear * 12 + startMonth - 1
+        let lastMonthIndex = firstMonthIndex + usefulLifeYears * 12 - 1
+        let months = min(lastMonthIndex, year * 12 + 11) - max(firstMonthIndex, year * 12) + 1
+        return months > 0 ? annualDepreciation * Double(months) / 12 : 0
+    }
 
+    private func uncappedBuildingRateDepreciation(forYear year: Int) -> Double {
         let calendar = Calendar.current
         let startYear = calendar.component(.year, from: placedInServiceDate)
-
-        if usesBuildingAfaRate {
-            guard year >= startYear else { return 0 }
-            if year == startYear {
-                let monthsUsed = 13 - calendar.component(.month, from: placedInServiceDate)
-                return annualDepreciation * Double(monthsUsed) / 12
-            }
-            return annualDepreciation
-        }
-
-        let endYear = startYear + usefulLifeYears - 1
-        guard year >= startYear, year <= endYear, usefulLifeYears > 0 else { return 0 }
-
-        if year == startYear {
-            let monthsUsed = 13 - calendar.component(.month, from: placedInServiceDate)
-            return annualDepreciation * Double(monthsUsed) / 12
+        guard year >= startYear else { return 0 }
+        if year == startYear, let buildingStart = property?.afaStartDate, calendar.component(.year, from: buildingStart) == startYear {
+            return annualDepreciation * Double(13 - calendar.component(.month, from: buildingStart)) / 12
         }
         return annualDepreciation
     }

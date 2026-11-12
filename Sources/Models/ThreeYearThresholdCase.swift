@@ -80,21 +80,27 @@ final class ThreeYearThresholdCase {
         self.createdAt = .now
     }
 
-    /// Alle Erhaltungsaufwand-Positionen der Immobilie, deren maßgebliches Datum in den
-    /// Dreijahreszeitraum fällt – die Kandidatenliste für die 15-%-Prüfung. Sonstige
-    /// Werbungskosten, GWG und bereits als Herstellungskosten erfasste Positionen sind bewusst
-    /// ausgeschlossen (siehe Auftrag). Maßgeblich ist `completionDate` (Fertigstellung/
-    /// Leistungszeitraum), falls erfasst, sonst `date` (Rechnungsdatum) als Fallback – weder
-    /// Rechnungs- noch Zahlungsdatum gelten ungeprüft als alleinige Grundlage.
+    /// Alle Instandsetzungs- und Modernisierungsaufwendungen der Immobilie, deren maßgebliches
+    /// Datum in den Dreijahreszeitraum fällt – die Kandidatenliste für die 15-%-Prüfung
+    /// (§ 6 Abs. 1 Nr. 1a EStG). Dazu gehören neben Erhaltungsaufwand auch Aufwendungen, die als
+    /// Herstellungskosten erfasst oder bereits aktiviert wurden (BFH IX R 25/14; sonst würde die
+    /// Grenze nach einer Aktivierung rechnerisch wieder unterschritten). Gesetzlich ausgenommen
+    /// sind nur Erweiterungen (§ 255 Abs. 2 Satz 1 HGB) und jährlich übliche Erhaltungsarbeiten –
+    /// sie werden als „Ausgeschlossen“ mit Begründung eingeordnet. Sonstige Werbungskosten zählen
+    /// nicht. Maßgeblich ist `completionDate` (Fertigstellung), falls erfasst, sonst `date`; der
+    /// Vergleich erfolgt tagesgenau einschließlich des ersten und letzten Tages.
     var candidateExpenses: [Expense] {
         guard let property else { return [] }
+        let calendar = Calendar.current
+        let first = calendar.startOfDay(for: periodStart)
+        let last = calendar.startOfDay(for: periodEnd)
         let own = property.expenses ?? []
         let unitOnes = (property.units ?? []).flatMap { $0.expenses ?? [] }
         var seen = Set<PersistentIdentifier>()
         return (own + unitOnes)
             .filter { seen.insert($0.persistentModelID).inserted }
-            .filter { $0.taxTreatment == .maintenanceExpense }
-            .filter { let d = $0.completionDate ?? $0.date; return d >= periodStart && d <= periodEnd }
+            .filter { $0.taxTreatment == .maintenanceExpense || $0.taxTreatment == .capitalized }
+            .filter { let day = calendar.startOfDay(for: $0.completionDate ?? $0.date); return day >= first && day <= last }
             .sorted { ($0.completionDate ?? $0.date) < ($1.completionDate ?? $1.date) }
     }
 
@@ -166,9 +172,10 @@ final class ThreeYearThresholdCase {
             return .notConclusivelyCheckable
         }
         if manuallyClosed { return .completed }
-        let percent = utilizationPercent ?? 0
-        if percent >= 100 { return .exceeded }
-        if percent >= 85 { return .thresholdReached }
+        // „übersteigen“ (§ 6 Abs. 1 Nr. 1a EStG): genau 15 % ist noch nicht überschritten. Vergleich
+        // auf Cent, damit Rundungsreste der Netto-Berechnung nicht über die Einordnung entscheiden.
+        if (includedNetTotal * 100).rounded() > (thresholdAmount * 100).rounded() { return .exceeded }
+        if (utilizationPercent ?? 0) >= 85 { return .thresholdReached }
         return .belowThreshold
     }
 

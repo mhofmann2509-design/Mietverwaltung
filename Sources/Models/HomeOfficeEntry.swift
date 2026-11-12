@@ -3,7 +3,7 @@ import SwiftData
 
 /// Homeoffice-Pauschale für die Verwaltung einer Immobilie (§ 4 Abs. 5 S. 1 Nr. 6c i.V.m. § 9
 /// Abs. 5 EStG): Tagessatz × erfasste Tage, ein Eintrag je Immobilie und Steuerjahr. Die
-/// Jahresdeckelung (210 Tage / 1.260 €) gilt pro Person über ALLE Immobilien hinweg und wird daher
+/// Jahresdeckelung (je nach Jahr 210 Tage/1.260 € bzw. 120 Tage/600 €) gilt pro Person über ALLE Immobilien hinweg und wird daher
 /// nicht hier, sondern in `HomeOfficeAllocation` objektübergreifend berechnet.
 @Model
 final class HomeOfficeEntry {

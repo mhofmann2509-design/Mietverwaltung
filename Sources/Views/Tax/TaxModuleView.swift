@@ -199,7 +199,7 @@ struct TaxModuleView: View {
             Theme.card {
                 OpenItemRow(
                     title: "Homeoffice-Pauschale über mehrere Immobilien",
-                    detail: "210-Tage-/1.260-€-Grenze im Steuerjahr \(String(selectedYear)) insgesamt überschritten – bereits anteilig gedeckelt.",
+                    detail: "\(HomeOfficeAllocation.cappedDays(forYear: selectedYear))-Tage-/\(HomeOfficeAllocation.annualCapAmount(forYear: selectedYear).asCurrency)-Grenze im Steuerjahr \(String(selectedYear)) insgesamt überschritten – bereits anteilig gedeckelt.",
                     tone: .warning
                 )
             }

@@ -46,12 +46,13 @@ final class CapitalizationDecision {
         (sourceExpenses ?? []).reduce(0) { $0 + $1.amount }
     }
 
-    /// Legt aus den übergebenen, bereits fachlich geprüften Ausgaben eine neue
-    /// `CapitalizationDecision` samt zugehörigem `DepreciableAsset(.improvement)` an und markiert
-    /// jede Quell-Ausgabe als `.capitalized` (damit sie aus künftigen 15-%-Kandidatenlisten
-    /// ausscheidet und nicht doppelt als Werbungskosten abgezogen wird). Reine Nutzeraktion – wird
-    /// nie automatisch aufgerufen. Jede Ausgabe darf nur einmal verknüpft werden; bereits
-    /// verknüpfte Ausgaben werden ignoriert, um einen doppelten Ansatz auszuschließen.
+    /// Legt aus den übergebenen, bereits fachlich geprüften Ausgaben je Kalenderjahr eine
+    /// `CapitalizationDecision` samt `DepreciableAsset(.improvement)` an und markiert jede
+    /// Quell-Ausgabe als `.capitalized`. Je Jahr ein eigenes Wirtschaftsgut, weil nachträgliche
+    /// Herstellungskosten ab dem Jahr ihrer Entstehung abgeschrieben werden (R 7.4 Abs. 9 EStR) –
+    /// eine Sammelposition ab dem spätesten Datum würde die AfA früherer Jahre verlieren. Reine
+    /// Nutzeraktion; bereits verknüpfte Ausgaben werden ignoriert (kein Doppelansatz). Die
+    /// Ausgaben bleiben Kandidaten der 15-%-Prüfung (siehe `ThreeYearThresholdCase`).
     @discardableResult
     static func create(
         from expenses: [Expense],
@@ -59,39 +60,36 @@ final class CapitalizationDecision {
         thresholdCase: ThreeYearThresholdCase?,
         reason: String,
         context: ModelContext
-    ) -> CapitalizationDecision? {
+    ) -> [CapitalizationDecision] {
+        let calendar = Calendar.current
         let unlinked = expenses.filter { $0.capitalizationDecision == nil }
-        guard !unlinked.isEmpty else { return nil }
+        let byYear = Dictionary(grouping: unlinked) { calendar.component(.year, from: $0.completionDate ?? $0.date) }
 
-        let effectiveDate = unlinked.map { $0.completionDate ?? $0.date }.max() ?? .now
-        let effectiveYear = Calendar.current.component(.year, from: effectiveDate)
-        let totalCost = unlinked.reduce(0) { $0 + $1.amount }
-        let assetName = reason.isEmpty
-            ? "Aktivierte Erhaltungsaufwendungen (\(unlinked.count) Position(en), \(String(effectiveYear)))"
-            : reason
+        return byYear.keys.sorted().map { year in
+            let group = byYear[year] ?? []
+            let placedInService = group.map { $0.completionDate ?? $0.date }.min() ?? .now
+            let totalCost = group.reduce(0) { $0 + $1.amount }
+            let assetName = reason.isEmpty
+                ? "Aktivierte Erhaltungsaufwendungen (\(group.count) Position(en), \(String(year)))"
+                : (byYear.count > 1 ? "\(reason) (\(String(year)))" : reason)
 
-        let asset = DepreciableAsset(
-            name: assetName,
-            category: .improvement,
-            cost: totalCost,
-            placedInServiceDate: effectiveDate
-        )
-        asset.property = property
-        context.insert(asset)
+            let asset = DepreciableAsset(name: assetName, category: .improvement, cost: totalCost, placedInServiceDate: placedInService)
+            asset.property = property
+            context.insert(asset)
 
-        let decision = CapitalizationDecision(effectiveYear: effectiveYear, reason: reason)
-        decision.property = property
-        decision.thresholdCase = thresholdCase
-        decision.resultingAsset = asset
-        context.insert(decision)
+            let decision = CapitalizationDecision(effectiveYear: year, reason: reason)
+            decision.property = property
+            decision.thresholdCase = thresholdCase
+            decision.resultingAsset = asset
+            context.insert(decision)
 
-        for expense in unlinked {
-            expense.taxTreatment = .capitalized
-            expense.capitalizationDecision = decision
+            for expense in group {
+                expense.taxTreatment = .capitalized
+                expense.capitalizationDecision = decision
+            }
+            decision.sourceExpenses = group
+            return decision
         }
-        decision.sourceExpenses = unlinked
-
-        return decision
     }
 
     /// Nimmt eine Aktivierung zurück, bevor ihr Wirtschaftsgut gelöscht wird: Die Quell-Ausgaben

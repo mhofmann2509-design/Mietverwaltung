@@ -85,7 +85,7 @@ private struct TenancyRow: Identifiable {
     var id: PersistentIdentifier { tenancy.persistentModelID }
     var tenantName: String { tenancy.tenant?.fullName ?? "Unbekannter Mieter" }
     var unitLabel: String { "\(tenancy.unit?.property?.name ?? "") · \(tenancy.unit?.name ?? "")" }
-    var sollMiete: Double { tenancy.coldRent }
+    var sollMiete: Double { tenancy.coldRent(forMonthContaining: .now) }
     var status: PaymentStatusKind {
         guard let payment = tenancy.payment(forMonthContaining: .now) else { return .open }
         if payment.isPaid { return .paid }
@@ -243,7 +243,7 @@ struct DashboardView: View {
                 .filter { $0.endDate != nil }
                 .sorted { ($0.endDate ?? .distantPast) > ($1.endDate ?? .distantPast) }
                 .first
-            return sum + (lastPastTenancy?.coldRent ?? 0)
+            return sum + (lastPastTenancy.map { $0.coldRent(forMonthContaining: $0.endDate ?? .now) } ?? 0)
         }
     }
 

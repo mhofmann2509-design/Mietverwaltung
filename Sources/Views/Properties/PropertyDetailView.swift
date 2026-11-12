@@ -263,7 +263,7 @@ struct PropertyDetailView: View {
                     VStack(alignment: .leading) {
                         Text(unit.name.isEmpty ? "Einheit" : unit.name)
                         if let tenancy = unit.activeTenancy, let tenant = tenancy.tenant {
-                            Text("Vermietet an \(tenant.fullName) · \(tenancy.totalMonthlyAmount.asCurrency)/Monat")
+                            Text("Vermietet an \(tenant.fullName) · \(tenancy.totalMonthlyAmount(forMonthContaining: .now).asCurrency)/Monat")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         } else {

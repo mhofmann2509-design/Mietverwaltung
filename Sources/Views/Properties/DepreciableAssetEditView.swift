@@ -21,6 +21,7 @@ struct DepreciableAssetEditView: View {
     @State private var isUsed = false
     @State private var estimatedValueText = ""
     @State private var isCoRented = false
+    @State private var vatRateText = ""
     @State private var showingDeleteConfirmation = false
 
     init(property: Property? = nil, unit: Unit? = nil, asset: DepreciableAsset?) {
@@ -40,9 +41,14 @@ struct DepreciableAssetEditView: View {
         return costText.parsedDecimal ?? 0
     }
 
+    /// Wie `DepreciableAsset.gwgNetBasis`: ohne Angabe 19 % bei neuen, 0 % bei gebrauchten Gütern.
+    private var vatRate: Double {
+        vatRateText.parsedDecimal ?? (isUsed ? 0 : 19)
+    }
+
     private var isGWG: Bool {
-        guard category != .improvement else { return false }
-        return effectiveBasis > 0 && effectiveBasis <= DepreciableAsset.gwgThreshold
+        guard category != .improvement, effectiveBasis > 0 else { return false }
+        return ((effectiveBasis / (1 + vatRate / 100)) * 100).rounded() <= DepreciableAsset.gwgThreshold * 100
     }
 
     var body: some View {
@@ -76,6 +82,12 @@ struct DepreciableAssetEditView: View {
                                 #endif
                         }
                     }
+                    if category != .improvement {
+                        TextField(isUsed ? "Enthaltene USt. (%, privat gekauft: 0)" : "Enthaltene USt. (%, leer = 19)", text: $vatRateText)
+                            #if os(iOS)
+                            .keyboardType(.decimalPad)
+                            #endif
+                    }
                     DatePicker("Anschaffung/Fertigstellung", selection: $placedInServiceDate, displayedComponents: .date)
                     if isGWG {
                         LabeledContent("Sofortabzug (GWG)", value: String(Calendar.current.component(.year, from: placedInServiceDate)))
@@ -104,7 +116,7 @@ struct DepreciableAssetEditView: View {
                         if category == .improvement {
                             Text("Herstellungskosten erhöhen die Bemessungsgrundlage der Gebäude-AfA und werden mit demselben Satz abgeschrieben wie das Gebäude selbst (ggf. verkürzt durch ein Restnutzungsdauergutachten, einstellbar bei der Immobilie) – keine eigene Nutzungsdauer.")
                         } else {
-                            Text("Geringwertige Wirtschaftsgüter (GWG) bis \(Int(DepreciableAsset.gwgThreshold)) € werden nach §6 Abs. 2 EStG automatisch im Anschaffungsjahr sofort in voller Höhe abgezogen, statt über die Nutzungsdauer verteilt.")
+                            Text("Geringwertige Wirtschaftsgüter bis \(Int(DepreciableAsset.gwgThreshold)) € netto werden nach §6 Abs. 2 EStG automatisch im Anschaffungsjahr sofort in voller Höhe (brutto) abgezogen, statt über die Nutzungsdauer verteilt.")
                             if isUsed {
                                 Text("Bei gebraucht erworbenen Wirtschaftsgütern ist der angesetzte Zeitwert bei Anschaffung maßgeblich für GWG-Prüfung und AfA – nicht der ursprüngliche Neupreis. Dieser Zeitwert wird einmalig angesetzt; die AfA für die folgenden Jahre berechnet sich danach automatisch.")
                             }
@@ -192,6 +204,7 @@ struct DepreciableAssetEditView: View {
         isUsed = asset.isUsed
         estimatedValueText = asset.estimatedValueAtAcquisition == 0 ? "" : String(asset.estimatedValueAtAcquisition)
         isCoRented = asset.isCoRented
+        vatRateText = asset.vatRatePercent.map { String($0) } ?? ""
     }
 
     private var validationMessages: [String] {
@@ -199,7 +212,7 @@ struct DepreciableAssetEditView: View {
             ? [FormValidation.number(estimatedValueText, "Zeitwert bei Anschaffung", .positive, required: true),
                FormValidation.number(costText, "Ursprünglicher Kaufpreis")]
             : [FormValidation.number(costText, "Anschaffungs-/Herstellungskosten", .positive, required: true)]
-        ).compactMap { $0 }
+         + [FormValidation.number(vatRateText, "Enthaltene USt.", .percent)]).compactMap { $0 }
     }
 
     private func save() {
@@ -218,8 +231,10 @@ struct DepreciableAssetEditView: View {
             asset.isUsed = isUsed
             asset.estimatedValueAtAcquisition = estimatedValue
             asset.isCoRented = isCoRented
+            asset.vatRatePercent = vatRateText.parsedDecimal
         } else {
             let newAsset = DepreciableAsset(name: name, category: category, cost: cost, usefulLifeYears: usefulLifeYears, placedInServiceDate: placedInServiceDate, notes: notes, isUsed: isUsed, estimatedValueAtAcquisition: estimatedValue, isCoRented: isCoRented)
+            newAsset.vatRatePercent = vatRateText.parsedDecimal
             newAsset.property = selectedProperty
             newAsset.unit = selectedUnit
             modelContext.insert(newAsset)

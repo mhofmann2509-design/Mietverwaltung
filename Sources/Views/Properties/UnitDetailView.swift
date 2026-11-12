@@ -159,7 +159,7 @@ struct UnitDetailView: View {
             Text("\(tenancy.startDate.asShortDate) – \(tenancy.endDate?.asShortDate ?? "laufend")")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Text("Kaltmiete \(tenancy.coldRent.asCurrency) + NK \(tenancy.utilityAdvance.asCurrency) = \(tenancy.totalMonthlyAmount.asCurrency)")
+            Text("Kaltmiete \(tenancy.coldRent(forMonthContaining: .now).asCurrency) + NK \(tenancy.utilityAdvance.asCurrency) = \(tenancy.totalMonthlyAmount(forMonthContaining: .now).asCurrency)")
                 .font(.caption)
         }
         .contentShape(Rectangle())

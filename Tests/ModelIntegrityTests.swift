@@ -51,7 +51,7 @@ final class ModelIntegrityTests: XCTestCase {
         context.insert(property)
         let expenses = [Expense(amount: 4_000, taxTreatment: .maintenanceExpense), Expense(amount: 6_000, taxTreatment: .maintenanceExpense)]
         expenses.forEach { $0.property = property; context.insert($0) }
-        let decision = try XCTUnwrap(CapitalizationDecision.create(from: expenses, property: property, thresholdCase: nil, reason: "Dach", context: context))
+        let decision = try XCTUnwrap(CapitalizationDecision.create(from: expenses, property: property, thresholdCase: nil, reason: "Dach", context: context).first)
         let asset = try XCTUnwrap(decision.resultingAsset)
         try context.save()
         XCTAssertTrue(expenses.allSatisfy { $0.taxTreatment == .capitalized })

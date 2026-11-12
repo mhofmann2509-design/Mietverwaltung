@@ -35,11 +35,11 @@ final class Property {
     // Allgemeine Daten
     var roomCount: Int?                         // Anzahl der Zimmer (gesamt)
     var totalUnitCount: Int?                     // Anzahl der Einheiten insgesamt lt. Teilungserklärung (unabhängig von den erfassten Einheiten)
-    /// Eigentumsanteil an der Immobilie selbst in Prozent (z.B. bei Miteigentum/Erbengemeinschaft
-    /// oder beim Kauf einer einzelnen Eigentumswohnung) – aus Teilungserklärung/Kaufvertrag oder
-    /// manuell erfasst. `nil`, solange nicht erfasst, statt stillschweigend 100 % anzunehmen.
-    /// Unabhängig vom Miteigentumsanteil (MEA) einzelner `Unit`s, der die interne Umlage der
-    /// Nebenkosten auf die Wohneinheiten bestimmt.
+    /// Eigener Anteil am erfassten Objekt in Prozent bei Miteigentum (z.B. Ehepartner,
+    /// Erbengemeinschaft) – Kaufpreis, Mieten und Kosten werden für das ganze Objekt erfasst, die
+    /// Anlage V weist zusätzlich den Anteil am Ergebnis aus. Nicht der Miteigentumsanteil (MEA) einer
+    /// Eigentumswohnung am Gesamtgebäude: Wer eine ETW allein besitzt, lässt das Feld leer.
+    /// `nil`, solange nicht erfasst.
     var ownershipSharePercent: Double?
 
     // Kauf & Rendite
@@ -234,22 +234,30 @@ final class Property {
         (remainingUsefulLifeAppraisals ?? []).sorted { $0.createdAt > $1.createdAt }.first
     }
 
-    /// Ob der angewandte AfA-Satz aus einem Restnutzungsdauergutachten abgeleitet ist (statt
-    /// typisiert oder manuell gesetzt) – für die Anzeige der Rechtsgrundlage in Steuer-Cockpit
+    /// Das jüngste Gutachten, sofern es steuerlich anwendbar ist: § 7 Abs. 4 Satz 2 EStG erlaubt
+    /// nur eine kürzere tatsächliche Nutzungsdauer, also einen höheren Satz als den typisierten.
+    /// Ergibt das Gutachten einen niedrigeren oder gleichen Satz, bleibt es beim typisierten Satz.
+    var applicableRemainingUsefulLifeAppraisal: RemainingUsefulLifeAppraisal? {
+        guard let appraisal = latestRemainingUsefulLifeAppraisal,
+              appraisal.suggestedAfaRatePercent > defaultAfaRatePercent else { return nil }
+        return appraisal
+    }
+
+    /// Herkunft des angewandten AfA-Satzes – für die Anzeige der Rechtsgrundlage in Steuer-Cockpit
     /// und Berichten.
     var afaRateSource: AfaRateSource {
         if afaRatePercentOverride != nil { return .manual }
-        if latestRemainingUsefulLifeAppraisal != nil { return .appraisal }
+        if applicableRemainingUsefulLifeAppraisal != nil { return .appraisal }
         return .typisiert
     }
 
     /// Maßgeblicher AfA-Satz: ein manuell gesetzter Satz (`afaRatePercentOverride`) hat stets
-    /// Vorrang; ohne manuellen Satz, aber mit einem erfassten Restnutzungsdauergutachten, gilt der
-    /// daraus abgeleitete Satz (100 / RND, § 7 Abs. 4 Satz 2 EStG) – wie in der als fachliche
-    /// Referenz verwendeten Steuererklärungs-Vorlage; ohne beides der typisierte Satz nach Baujahr.
+    /// Vorrang; ohne manuellen Satz gilt ein anwendbares Restnutzungsdauergutachten (100 / RND,
+    /// § 7 Abs. 4 Satz 2 EStG, siehe `applicableRemainingUsefulLifeAppraisal`), sonst der
+    /// typisierte Satz nach Baujahr.
     var afaRatePercent: Double {
         if let override = afaRatePercentOverride { return override }
-        if let appraisal = latestRemainingUsefulLifeAppraisal { return appraisal.suggestedAfaRatePercent }
+        if let appraisal = applicableRemainingUsefulLifeAppraisal { return appraisal.suggestedAfaRatePercent }
         return defaultAfaRatePercent
     }
 
@@ -294,6 +302,12 @@ final class Property {
         max(0, purchaseAncillaryCosts - purchaseTransferTaxCosts - purchaseBrokerCosts - purchaseNotaryCosts - purchaseLandRegistryCosts)
     }
 
+    /// Kaufpreis erfasst, aber kein Bodenwert: Dann gilt rechnerisch der gesamte Kaufpreis als
+    /// Gebäude und die AfA ist zu hoch – Berichte weisen darauf ausdrücklich hin.
+    var isLandValueMissing: Bool {
+        purchasePrice > 0 && landValue <= 0
+    }
+
     /// Anteil von Grund und Boden am reinen Kaufpreis (0...1), aus der im Kaufvertrag bezifferten
     /// Aufteilung (`landValue`) ermittelt – Grundlage dafür, die Anschaffungsnebenkosten
     /// anteilig auf Grund und Gebäude aufzuteilen (sie erhöhen beide, nicht nur das Gebäude).
@@ -320,16 +334,23 @@ final class Property {
     }
 
     /// Gebäude-AfA für ein bestimmtes Jahr, im Jahr des wirtschaftlichen Übergangs (ersatzweise
-    /// Kaufjahr) monatsgenau anteilig – siehe `afaStartDate`.
+    /// Kaufjahr) monatsgenau anteilig (§ 7 Abs. 1 Satz 4 EStG) – siehe `afaStartDate`. Endet, sobald
+    /// der Gebäudewert vollständig abgeschrieben ist: das letzte Jahr enthält nur noch den Restbetrag.
     func buildingAfA(forYear year: Int) -> Double {
         guard buildingValue > 0 else { return 0 }
         guard let afaStartDate else { return annualBuildingAfA }
+        let startYear = Calendar.current.component(.year, from: afaStartDate)
+        guard year >= startYear else { return 0 }
+        let depreciatedBefore = (startYear..<year).reduce(0.0) { $0 + uncappedBuildingAfA(forYear: $1, startDate: afaStartDate) }
+        return max(0, min(uncappedBuildingAfA(forYear: year, startDate: afaStartDate), buildingValue - depreciatedBefore))
+    }
+
+    private func uncappedBuildingAfA(forYear year: Int, startDate: Date) -> Double {
         let calendar = Calendar.current
-        let startYear = calendar.component(.year, from: afaStartDate)
+        let startYear = calendar.component(.year, from: startDate)
         guard year >= startYear else { return 0 }
         if year == startYear {
-            let monthsUsed = 13 - calendar.component(.month, from: afaStartDate)
-            return annualBuildingAfA * Double(monthsUsed) / 12
+            return annualBuildingAfA * Double(13 - calendar.component(.month, from: startDate)) / 12
         }
         return annualBuildingAfA
     }
@@ -415,7 +436,7 @@ final class Property {
             .reduce(0) { $0 + $1.amount }
     }
 
-    /// Anteilige, bereits auf 1.260 €/Jahr (über alle Immobilien hinweg) gedeckelte
+    /// Anteilige, bereits auf den Jahreshöchstbetrag (über alle Immobilien hinweg) gedeckelte
     /// Homeoffice-Pauschale dieser Immobilie für ein bestimmtes Kalenderjahr, siehe
     /// `HomeOfficeAllocation`.
     func homeOfficeAllowance(forYear year: Int) -> Double {
@@ -427,11 +448,11 @@ final class Property {
         werbungskosten(forYear: Calendar.current.component(.year, from: .now))
     }
 
-    /// Sofort abziehbare Werbungskosten (Erhaltungsaufwand, sonstige Werbungskosten, Fahrtkosten,
-    /// anteilige Homeoffice-Pauschale und Schuldzinsen) für ein bestimmtes Kalenderjahr.
-    /// Schuldzinsen sind nach § 9 Abs. 1 S. 3 Nr. 1 EStG Werbungskosten – die Tilgung dagegen nicht.
+    /// Sofort abziehbare Werbungskosten ohne AfA (Erhaltungsaufwand, sonstige Werbungskosten,
+    /// Betriebskosten lt. Abrechnung, Fahrtkosten, Homeoffice-Pauschale, Schuldzinsen) – dieselbe
+    /// Berechnung wie die Anlage V, siehe `AnlageVCalculation`.
     func werbungskosten(forYear year: Int) -> Double {
-        maintenanceExpenses(forYear: year) + otherDeductibleExpenses(forYear: year) + travelExpenseTotal(forYear: year) + homeOfficeAllowance(forYear: year) + (loanBreakdown(forYear: year)?.interest ?? 0)
+        AnlageVCalculation(property: self, year: year).werbungskostenWithoutAfa
     }
 
     /// Grob geschätzter steuerlicher Überschuss/Verlust: Kaltmiete − Werbungskosten − AfA.
@@ -440,9 +461,10 @@ final class Property {
         estimatedTaxableResult(forYear: Calendar.current.component(.year, from: .now))
     }
 
-    /// Grob geschätzter steuerlicher Überschuss/Verlust für ein bestimmtes Kalenderjahr.
+    /// Geschätzter steuerlicher Überschuss/Verlust für ein bestimmtes Kalenderjahr – identisch mit
+    /// dem Ergebnis der Anlage V im Steuerreport.
     func estimatedTaxableResult(forYear year: Int) -> Double {
-        annualColdRent(forYear: year) - werbungskosten(forYear: year) - totalAfa(forYear: year)
+        AnlageVCalculation(property: self, year: year).result
     }
 
     /// Jahre, für die diese Immobilie bereits Daten hat (Ausgaben, Mietverhältnisse, Wirtschaftsgüter,
@@ -479,13 +501,16 @@ final class Property {
         let startYear = Calendar.current.component(.year, from: loanStartDate)
         guard year >= startYear else { return nil }
 
+        // Im Startjahr nur die tatsächlich laufenden Monate (Darlehensbeginn im Dezember = 1/12).
+        let monthsInStartYear = Double(13 - Calendar.current.component(.month, from: loanStartDate))
         var balance = loanAmount
         var interestForYear = 0.0
         var principalForYear = 0.0
         var currentYear = startYear
         while currentYear <= year && balance > 0 {
-            let interest = balance * interestRatePercent / 100
-            let principal = min(annualAnnuity - interest, balance)
+            let fraction = currentYear == startYear ? monthsInStartYear / 12 : 1
+            let interest = balance * interestRatePercent / 100 * fraction
+            let principal = min(annualAnnuity * fraction - interest, balance)
             if currentYear == year {
                 interestForYear = interest
                 principalForYear = principal
@@ -558,7 +583,7 @@ final class Property {
         let calendar = Calendar.current
         let year = calendar.component(.year, from: date)
         let monthlyColdRent = (units ?? []).reduce(0.0) { sum, unit in
-            sum + (unit.tenancies ?? []).filter { $0.isRunning(on: date) }.reduce(0.0) { $0 + $1.coldRent }
+            sum + (unit.tenancies ?? []).filter { $0.isRunning(on: date) }.reduce(0.0) { $0 + $1.coldRent(forMonthContaining: date) }
         }
         let monthlyCashExpenses = allExpenses(forYear: year)
             .filter { calendar.isDate($0.date, equalTo: date, toGranularity: .month) }

@@ -160,6 +160,19 @@ enum TaxReportPDFBuilder {
             }
         }
 
+        if property.isLandValueMissing {
+            warnings.append("Bodenwert nicht erfasst – rechnerisch gilt der gesamte Kaufpreis als Gebäude, die Gebäude-AfA ist dadurch voraussichtlich zu hoch. Bodenwert lt. Kaufvertrag oder Bodenrichtwert ergänzen.")
+        }
+        if let taxYear = kind.taxYear {
+            let withoutAfa = property.allExpenses(forYear: taxYear).filter { $0.taxTreatment == .capitalized && $0.capitalizationDecision == nil }
+            if !withoutAfa.isEmpty {
+                warnings.append("\(withoutAfa.count) als Herstellungskosten erfasste Ausgabe(n) \(String(taxYear)) (\(withoutAfa.reduce(0.0) { $0 + $1.amount }.asCurrency)) ohne zugehöriges Wirtschaftsgut – dafür wird noch keine AfA berechnet. In der 15-%-Prüfung oder unter Herstellungskosten als Wirtschaftsgut aktivieren.")
+            }
+        }
+        if let appraisal = property.latestRemainingUsefulLifeAppraisal, property.applicableRemainingUsefulLifeAppraisal == nil, property.afaRatePercentOverride == nil {
+            warnings.append("Restnutzungsdauergutachten vom \(appraisal.valuationDate.asShortDate) ergibt \(appraisal.suggestedAfaRatePercent.asPercent) und damit nicht mehr als den typisierten Satz (\(property.defaultAfaRatePercent.asPercent)) – § 7 Abs. 4 Satz 2 EStG erlaubt nur eine kürzere Nutzungsdauer, angewandt wird daher der typisierte Satz.")
+        }
+
         switch kind {
         case .initialSetup:
             let asOfYear = Calendar.current.component(.year, from: generatedAt)
@@ -537,10 +550,13 @@ enum TaxReportPDFBuilder {
             afaRows.append(["Übergang Nutzen und Lasten (maßgeblich für AfA-Beginn)", economicTransferDate.asShortDate])
         }
         afaRows.append(["Kaufpreis gesamt", property.purchasePrice.asCurrency])
-        afaRows.append(["Grund-und-Boden-Anteil (lt. Kaufvertrag)", (property.landValuePercentage * 100).asPercent])
+        afaRows.append(["Grund-und-Boden-Anteil (lt. Kaufvertrag)", property.isLandValueMissing ? tonedCell("Bodenwert nicht erfasst – 0 %, Prüfung erforderlich", .warning) : (property.landValuePercentage * 100).asPercent])
 
         afaRows.append(["##ANSCHAFFUNGSNEBENKOSTEN", ""])
         if property.hasItemizedAncillaryCosts {
+            if property.purchaseTransferTaxCosts > 0 {
+                afaRows.append(["Grunderwerbsteuer", property.purchaseTransferTaxCosts.asCurrency])
+            }
             if property.purchaseBrokerCosts > 0 {
                 afaRows.append(["Maklerkosten", property.purchaseBrokerCosts.asCurrency])
             }
@@ -572,6 +588,9 @@ enum TaxReportPDFBuilder {
         if let appraisal = property.latestRemainingUsefulLifeAppraisal {
             afaRows.append(["Gutachten vorhanden", "Ja, vom \(appraisal.valuationDate.asShortDate)"])
             afaRows.append(["Restnutzungsdauer lt. Gutachten", "\(Int(appraisal.remainingUsefulLifeYears.rounded())) Jahre → \(appraisal.suggestedAfaRatePercent.asPercent)"])
+            if property.applicableRemainingUsefulLifeAppraisal == nil {
+                afaRows.append(["Anwendbarkeit", tonedCell("nicht anwendbar – Satz nicht höher als typisiert (§ 7 Abs. 4 Satz 2 EStG)", .warning)])
+            }
         } else {
             afaRows.append(["Gutachten vorhanden", "Nein – es gilt der typisierte Satz"])
         }
@@ -844,7 +863,13 @@ enum TaxReportPDFBuilder {
         let items = property.allExpenses(forYear: taxYear).filter { $0.taxTreatment == .maintenanceExpense || $0.taxTreatment == .capitalized }
         guard !items.isEmpty else { return nil }
         let rows = items.sorted { $0.date < $1.date }.map { expense -> [String] in
-            [expense.date.asShortDate, expense.title, expense.amount.asCurrency, expense.taxTreatment == .capitalized ? "Herstellungskosten" : "Erhaltungsaufwand", belegLabel(expense.documents)]
+            let einordnung: String
+            if expense.taxTreatment == .capitalized {
+                einordnung = expense.capitalizationDecision == nil ? tonedCell("Herstellungskosten – noch keine AfA", .warning) : "Herstellungskosten"
+            } else {
+                einordnung = "Erhaltungsaufwand"
+            }
+            return [expense.date.asShortDate, expense.title, expense.amount.asCurrency, einordnung, belegLabel(expense.documents)]
         }
         return Chapter(
             title: "Erhaltungsaufwand und Herstellungskosten",
@@ -861,11 +886,20 @@ enum TaxReportPDFBuilder {
     // MARK: - Kapitel: Sonstige Werbungskosten (Einzelnachweis)
 
     private static func buildOtherExpensesChapter(property: Property, taxYear: Int) -> Chapter? {
+        let calc = AnlageVCalculation(property: property, year: taxYear)
+        let financingIDs = Set(calc.excludedFinancingExpenses.map(\.persistentModelID))
+        let utilityIDs = Set(calc.excludedUtilityExpenses.map(\.persistentModelID))
         var rows = property.allExpenses(forYear: taxYear)
             .filter { $0.taxTreatment == .otherDeductible }
             .sorted { $0.date < $1.date }
             .map { expense -> [String] in
-                [expense.date.asShortDate, expense.title, expense.category.label, expense.amount.asCurrency, belegLabel(expense.documents)]
+                var category = expense.category.label
+                if financingIDs.contains(expense.persistentModelID) {
+                    category = "\(category) (nicht angesetzt – Zinsen aus Finanzierung)"
+                } else if utilityIDs.contains(expense.persistentModelID) {
+                    category = "\(category) (nicht angesetzt – in Nebenkostenabrechnung)"
+                }
+                return [expense.date.asShortDate, expense.title, category, expense.amount.asCurrency, belegLabel(expense.documents)]
             }
 
         let travelRows = (property.travelExpenses ?? [])
@@ -889,7 +923,7 @@ enum TaxReportPDFBuilder {
 
         var introLines = ["Tilgungsanteile der Finanzierung sind keine Werbungskosten und daher nicht enthalten."]
         if HomeOfficeAllocation.isCapExceeded(for: property, taxYear: taxYear) {
-            introLines.append("Hinweis: Die 210-Tage-/1.260-€-Grenze der Homeoffice-Pauschale gilt pro Person über alle Immobilien hinweg und wurde hier bereits anteilig gedeckelt.")
+            introLines.append("Hinweis: Die \(HomeOfficeAllocation.cappedDays(forYear: taxYear))-Tage-/\(HomeOfficeAllocation.annualCapAmount(forYear: taxYear).asCurrency)-Grenze der Homeoffice-Pauschale gilt pro Person über alle Immobilien hinweg und wurde hier bereits anteilig gedeckelt.")
         }
 
         return Chapter(
@@ -909,57 +943,62 @@ enum TaxReportPDFBuilder {
     /// ERGEBNIS als Abschnitte). Zeilen mit „##“ sind Abschnittsüberschriften, mit „**“ Summenzeilen
     /// (siehe `TaxPDFChapterPage`).
     private static func buildAnlageVChapter(property: Property, taxYear: Int) -> Chapter? {
-        let coldRent = property.annualColdRent(forYear: taxYear)
-        let werbungskosten = property.werbungskosten(forYear: taxYear)
-        let afaTotal = property.totalAfa(forYear: taxYear)
-        guard coldRent != 0 || werbungskosten != 0 || afaTotal != 0 else { return nil }
-
-        let afaBuilding = property.buildingAfA(forYear: taxYear)
-        // `.improvement`-Wirtschaftsgüter (z.B. eine aktivierte Fassadendämmung) werden mit dem
-        // Gebäude-AfA-Satz abgeschrieben, sind aber kein bewegliches Wirtschaftsgut/Einrichtung –
-        // getrennt ausgewiesen, damit die Zeile „Einrichtung“ nicht fälschlich Gebäudepositionen
-        // enthält. Die Summe bleibt identisch mit `property.assetDepreciation(forYear:)`.
-        let allAssets = property.depreciableAssets ?? []
-        let movableAssetAfa = allAssets.filter { $0.category != .improvement }.reduce(0.0) { $0 + $1.depreciation(forYear: taxYear) }
-        let improvementAssetAfa = allAssets.filter { $0.category == .improvement }.reduce(0.0) { $0 + $1.depreciation(forYear: taxYear) }
-        let travel = property.travelExpenseTotal(forYear: taxYear)
-        let homeOffice = property.homeOfficeAllowance(forYear: taxYear)
-        let interest = property.loanBreakdown(forYear: taxYear)?.interest ?? 0
-        let maintenance = property.maintenanceExpenses(forYear: taxYear)
-        let otherWK = property.otherDeductibleExpenses(forYear: taxYear)
-
-        let totalIncome = coldRent
-        let totalExpenses = afaBuilding + movableAssetAfa + improvementAssetAfa + travel + homeOffice + interest + maintenance + otherWK
-        let result = totalIncome - totalExpenses
+        let calc = AnlageVCalculation(property: property, year: taxYear)
+        guard calc.totalIncome != 0 || calc.totalWerbungskosten != 0 else { return nil }
 
         var rows: [[String]] = [
             ["##EINNAHMEN", ""],
-            ["Kaltmiete / Grundmiete", coldRent.asCurrency],
-            ["**Summe Einnahmen", totalIncome.asCurrency],
+            ["Mieteinnahmen (Kaltmiete)", calc.coldRentIncome.asCurrency],
+            ["Umlagen (vereinnahmte Nebenkostenvorauszahlungen)", calc.utilityAdvanceIncome.asCurrency],
+            ["**Summe Einnahmen", calc.totalIncome.asCurrency],
             ["##WERBUNGSKOSTEN", ""],
-            ["AfA Gebäude", afaBuilding.asCurrency],
-            ["AfA bewegliche Wirtschaftsgüter (Einrichtung)", movableAssetAfa.asCurrency]
+            ["AfA Gebäude", calc.buildingAfa.asCurrency],
+            ["AfA bewegliche Wirtschaftsgüter (Einrichtung)", calc.movableAssetAfa.asCurrency]
         ]
-        if improvementAssetAfa > 0 {
-            rows.append(["AfA Herstellungskosten am Gebäude (aktiviert, siehe AfA-Bericht)", improvementAssetAfa.asCurrency])
+        if calc.improvementAssetAfa > 0 {
+            rows.append(["AfA Herstellungskosten am Gebäude (aktiviert, siehe AfA-Bericht)", calc.improvementAssetAfa.asCurrency])
         }
         rows.append(contentsOf: [
-            ["Fahrtkosten", travel.asCurrency],
-            ["Homeoffice-Pauschale", homeOffice.asCurrency],
-            ["Schuldzinsen", interest.asCurrency],
-            ["Erhaltungsaufwand/Instandhaltung", maintenance.asCurrency],
-            ["Sonstige Werbungskosten", otherWK.asCurrency],
-            ["**Summe Werbungskosten", totalExpenses.asCurrency],
+            ["Schuldzinsen", calc.interest.asCurrency],
+            ["Erhaltungsaufwand/Instandhaltung", calc.maintenance.asCurrency],
+            ["Betriebskosten lt. Nebenkostenabrechnung (ohne Rücklage)", calc.utilityCosts.asCurrency],
+            ["Fahrtkosten", calc.travel.asCurrency],
+            ["Homeoffice-Pauschale", calc.homeOffice.asCurrency],
+            ["Sonstige Werbungskosten", calc.otherDeductible.asCurrency],
+            ["**Summe Werbungskosten", calc.totalWerbungskosten.asCurrency],
             ["##ERGEBNIS", ""],
-            ["**Einkünfte aus Vermietung und Verpachtung", result.asCurrency]
+            ["**Einkünfte aus Vermietung und Verpachtung", calc.result.asCurrency]
         ])
+        if let share = calc.ownershipSharePercent, let ownResult = calc.ownerShareOfResult {
+            rows.append(["davon Anteil lt. Eigentumsanteil (\(share.asPercent))", ownResult.asCurrency])
+        }
+
+        var intro = [
+            "Einkünfte aus Vermietung und Verpachtung, Steuerjahr \(String(taxYear)). Einnahmen nach Zahlungseingang, dem Fälligkeitsmonat zugeordnet. Tilgungsanteile sind keine Werbungskosten und daher nicht enthalten.",
+            "Vollständige AfA-Herleitung (inkl. Anschaffungsnebenkosten- und Grund-und-Boden-Aufteilung): siehe AfA-Bericht."
+        ]
+        if calc.estimatedRentMonths > 0 {
+            intro.append("\(calc.estimatedRentMonths) Mietmonat(e) ohne erfasste Zahlung wurden mit der vereinbarten Miete angesetzt – bitte mit den tatsächlichen Zahlungseingängen abgleichen.")
+        }
+        if !calc.excludedFinancingExpenses.isEmpty {
+            intro.append("Nicht angesetzt, da die Schuldzinsen aus der hinterlegten Finanzierung berechnet werden: \(calc.excludedFinancingExpenses.count) Ausgabe(n) der Kategorie „Finanzierung“ (\(calc.excludedFinancingExpenses.reduce(0.0) { $0 + $1.amount }.asCurrency)). Finanzierungsnebenkosten wie Bereitstellungszinsen bitte einer anderen Kategorie zuordnen.")
+        }
+        if !calc.excludedUtilityExpenses.isEmpty {
+            intro.append("Nicht angesetzt, da bereits in der Nebenkostenabrechnung enthalten: \(calc.excludedUtilityExpenses.count) Ausgabe(n) der Kategorie „Betriebskosten“ (\(calc.excludedUtilityExpenses.reduce(0.0) { $0 + $1.amount }.asCurrency)).")
+        }
+        if !calc.excludedReserveItems.isEmpty {
+            intro.append("Zuführung zur Instandhaltungsrücklage (\(calc.excludedReserveItems.reduce(0.0) { $0 + $1.amount }.asCurrency)) nicht angesetzt – abziehbar erst bei Verwendung für Erhaltungsmaßnahmen.")
+        }
+        if calc.utilityCostsMissing {
+            intro.append("Umlagen vereinnahmt, aber keine Betriebskosten erfasst – Nebenkostenabrechnung des Jahres ergänzen, sonst ist das Ergebnis zu hoch.")
+        }
+        if calc.ownershipSharePercent != nil {
+            intro.append("Bei Miteigentum (Bruchteilsgemeinschaft) werden die Einkünfte in der Regel gesondert und einheitlich festgestellt; der Anteil dient der Orientierung.")
+        }
 
         return Chapter(
             title: "Anlage V – Einnahmen und Werbungskosten",
-            introLines: [
-                "Einkünfte aus Vermietung und Verpachtung, Steuerjahr \(String(taxYear)). Tilgungsanteile sind keine Werbungskosten und daher nicht enthalten.",
-                "Vollständige AfA-Herleitung (inkl. Anschaffungsnebenkosten- und Grund-und-Boden-Aufteilung): siehe AfA-Bericht."
-            ],
+            introLines: intro,
             summaryLines: [],
             columnHeaders: ["Position", "Betrag"],
             rows: rows

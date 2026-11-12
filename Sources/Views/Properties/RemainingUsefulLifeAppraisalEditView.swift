@@ -94,10 +94,16 @@ struct RemainingUsefulLifeAppraisalEditView: View {
                         .font(.headline)
                         .foregroundStyle(Theme.statusWarning)
 
-                    Button {
-                        applyAsAfaRate()
-                    } label: {
-                        Label("Als AfA-Satz der Immobilie übernehmen", systemImage: "checkmark.circle")
+                    if preview.suggestedAfaRatePercent > property.defaultAfaRatePercent {
+                        Button {
+                            applyAsAfaRate()
+                        } label: {
+                            Label("Als AfA-Satz der Immobilie übernehmen", systemImage: "checkmark.circle")
+                        }
+                    } else {
+                        Text("Nicht übernehmbar: Der Satz liegt nicht über dem typisierten Satz von \(property.defaultAfaRatePercent.asPercent). § 7 Abs. 4 Satz 2 EStG erlaubt nur eine kürzere Nutzungsdauer, also einen höheren Satz.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                     if showingAppliedConfirmation {
                         Text("Übernommen – der AfA-Satz der Immobilie wurde auf \(preview.suggestedAfaRatePercent.asPercent) gesetzt.")

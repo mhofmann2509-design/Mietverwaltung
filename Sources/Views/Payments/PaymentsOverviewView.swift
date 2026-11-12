@@ -55,7 +55,7 @@ struct PaymentsOverviewView: View {
             let rows: [LedgerRow] = (1...12).compactMap { month in
                 guard let date = calendar.date(from: DateComponents(year: year, month: month, day: 1)) else { return nil }
                 guard tenancy.isRunning(on: date) else { return nil }
-                let due = tenancy.totalMonthlyAmount
+                let due = tenancy.totalMonthlyAmount(forMonthContaining: date)
                 let payment = tenancy.payment(forMonthContaining: date)
                 let paid = (payment?.isPaid == true) ? (payment?.paidAmount ?? due) : 0
                 running += (due - paid)
@@ -284,7 +284,7 @@ struct PaymentsOverviewView: View {
         } else {
             let payment = RentPayment(
                 dueDate: month,
-                coldRentDue: tenancy.coldRent,
+                coldRentDue: tenancy.coldRent(forMonthContaining: month),
                 utilityAdvanceDue: tenancy.utilityAdvance
             )
             payment.markPaid(date: .now)

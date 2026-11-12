@@ -128,10 +128,11 @@ final class TaxCalculationTests: XCTestCase {
         XCTAssertEqual(property.cumulativeBuildingAfA(uptoYear: 2049), 240_000, accuracy: 0.01)
         XCTAssertEqual(property.remainingBuildingBookValue(afterYear: 2049), 0, accuracy: 0.01)
 
-        // Weit darüber hinaus (z.B. Report für ein Steuerjahr in ferner Zukunft gewählt) darf die
-        // kumulierte Summe nicht über den Gebäudewert hinauswachsen, auch wenn `buildingAfA(forYear:)`
-        // für sich genommen weiterhin den festen Jahresbetrag zurückgibt.
-        XCTAssertEqual(property.buildingAfA(forYear: 2080), 4_800, accuracy: 0.01)
+        // Nach vollständiger Abschreibung liefert auch der Jahresbetrag selbst 0 – sonst flösse er
+        // weiter in Anlage V und Dashboard ein.
+        XCTAssertEqual(property.buildingAfA(forYear: 2049), 4_800, accuracy: 0.01)
+        XCTAssertEqual(property.buildingAfA(forYear: 2050), 0, accuracy: 0.01)
+        XCTAssertEqual(property.buildingAfA(forYear: 2080), 0, accuracy: 0.01)
         XCTAssertEqual(property.cumulativeBuildingAfA(uptoYear: 2080), 240_000, accuracy: 0.01)
         XCTAssertEqual(property.remainingBuildingBookValue(afterYear: 2080), 0, accuracy: 0.01)
 
@@ -151,7 +152,8 @@ final class TaxCalculationTests: XCTestCase {
     func testAppraisalRateAppliesWithoutManualOverride() {
         let property = Property(constructionYear: 1998)
         context.insert(property)
-        let appraisal = RemainingUsefulLifeAppraisal(constructionYear: 1998, totalUsefulLifeYears: 80)
+        // Baujahr 1960, Stichtag 2026, keine Modernisierung → RND ≈ 16,8 Jahre → Satz ≈ 5,95 % > 2 %.
+        let appraisal = RemainingUsefulLifeAppraisal(constructionYear: 1960, valuationDate: calendarDate(2026, 1, 1), totalUsefulLifeYears: 80)
         appraisal.property = property
         context.insert(appraisal)
 
@@ -163,7 +165,7 @@ final class TaxCalculationTests: XCTestCase {
     func testManualOverrideWinsOverAppraisal() {
         let property = Property(constructionYear: 1998)
         context.insert(property)
-        let appraisal = RemainingUsefulLifeAppraisal(constructionYear: 1998, totalUsefulLifeYears: 80)
+        let appraisal = RemainingUsefulLifeAppraisal(constructionYear: 1960, valuationDate: calendarDate(2026, 1, 1), totalUsefulLifeYears: 80)
         appraisal.property = property
         context.insert(appraisal)
         property.afaRatePercentOverride = 3.3
@@ -313,7 +315,10 @@ final class TaxCalculationTests: XCTestCase {
         XCTAssertEqual(thresholdCase.possibleAdditionalAmount, 1_190 / 1.19, accuracy: 0.01)
     }
 
-    func testThresholdCaseExcludesOtherDeductibleAndCapitalizedExpenses() {
+    /// § 6 Abs. 1 Nr. 1a EStG: Instandsetzungs- und Modernisierungsaufwand zählt unabhängig davon,
+    /// ob er als Herstellungskosten erfasst ist (BFH IX R 25/14). Nur Erweiterungen (wie ein Anbau)
+    /// sind ausgenommen – das ordnet der Nutzer mit Begründung als „Ausgeschlossen“ ein.
+    func testThresholdCaseIncludesCapitalizedButNotOtherDeductibleExpenses() {
         let property = Property(purchasePrice: 300_000, purchaseDate: calendarDate(2023, 1, 1), landValue: 60_000)
         context.insert(property)
         let thresholdCase = ThreeYearThresholdCase(periodStart: calendarDate(2023, 1, 1), periodEnd: calendarDate(2025, 12, 31))
@@ -327,7 +332,10 @@ final class TaxCalculationTests: XCTestCase {
         capitalized.property = property
         context.insert(capitalized)
 
-        XCTAssertTrue(thresholdCase.candidateExpenses.isEmpty, "Sonstige Werbungskosten und Herstellungskosten gehören nicht in die 15-%-Grenze.")
+        XCTAssertEqual(thresholdCase.candidateExpenses.map(\.title), ["Anbau"], "Sonstige Werbungskosten zählen nicht, Herstellungskosten schon.")
+        thresholdCase.ensureAssessments(context: context)
+        thresholdCase.assessment(for: capitalized)?.status = .excluded
+        XCTAssertEqual(thresholdCase.includedNetTotal, 0, "Als Erweiterung ausgeschlossen, fließt der Anbau nicht in die Summe ein.")
     }
 
     func testEnsureAssessmentsIsIdempotent() {
@@ -388,9 +396,8 @@ final class TaxCalculationTests: XCTestCase {
         XCTAssertEqual(asset.cumulativeDepreciation(uptoYear: 2049), 24_000, accuracy: 0.01)
         XCTAssertEqual(asset.remainingDepreciationBookValue(afterYear: 2049), 0, accuracy: 0.01)
 
-        // Weit darüber hinaus darf die Summe nicht über die Bemessungsgrundlage hinauswachsen, auch
-        // wenn `depreciation(forYear:)` für sich genommen weiterhin den festen Jahresbetrag liefert.
-        XCTAssertEqual(asset.depreciation(forYear: 2080), 480, accuracy: 0.01)
+        // Nach vollständiger Abschreibung liefert auch der Jahresbetrag 0.
+        XCTAssertEqual(asset.depreciation(forYear: 2080), 0, accuracy: 0.01)
         XCTAssertEqual(asset.cumulativeDepreciation(uptoYear: 2080), 24_000, accuracy: 0.01)
         XCTAssertEqual(asset.remainingDepreciationBookValue(afterYear: 2080), 0, accuracy: 0.01)
     }
@@ -676,7 +683,8 @@ final class TaxCalculationTests: XCTestCase {
         XCTAssertFalse(candidateIDs.contains(finishedBeforePeriod.persistentModelID))
     }
 
-    func testThresholdCaseExactlyAtThresholdCountsAsExceeded() {
+    /// „übersteigen“: genau 15 % ist noch nicht überschritten, ein Cent mehr schon.
+    func testThresholdCaseExactlyAtThresholdIsNotYetExceeded() {
         let property = Property(purchasePrice: 300_000, purchaseDate: calendarDate(2023, 1, 1), landValue: 60_000)
         context.insert(property)
         let thresholdCase = ThreeYearThresholdCase(periodStart: calendarDate(2023, 1, 1), periodEnd: calendarDate(2025, 12, 31))
@@ -693,7 +701,10 @@ final class TaxCalculationTests: XCTestCase {
         thresholdCase.assessment(for: expense)?.status = .certain
 
         XCTAssertEqual(thresholdCase.includedNetTotal, 36_000, accuracy: 0.01)
-        XCTAssertEqual(thresholdCase.status, .exceeded, "Der Grenzfall genau an der 15-%-Schwelle gilt bereits als überschritten, nicht als nur erreicht.")
+        XCTAssertEqual(thresholdCase.status, .thresholdReached)
+
+        expense.amount = 42_840.02 // netto 36.000,02 €
+        XCTAssertEqual(thresholdCase.status, .exceeded)
     }
 
     func testPossibleAdditionalAmountOnlySumsUnclassifiedPositions() {
@@ -736,7 +747,7 @@ final class TaxCalculationTests: XCTestCase {
         expense.property = property
         context.insert(expense)
 
-        let decision = CapitalizationDecision.create(from: [expense], property: property, thresholdCase: nil, reason: "Anschaffungsnahe Herstellungskosten", context: context)
+        let decision = CapitalizationDecision.create(from: [expense], property: property, thresholdCase: nil, reason: "Anschaffungsnahe Herstellungskosten", context: context).first
 
         XCTAssertNotNil(decision)
         XCTAssertEqual(decision?.totalAmount, 20_000)
@@ -748,7 +759,9 @@ final class TaxCalculationTests: XCTestCase {
         XCTAssertEqual(expense.capitalizationDecision, decision)
     }
 
-    func testCapitalizationDecisionExpenseIsExcludedFromFutureThresholdCandidates() {
+    /// Nach der Aktivierung bleibt die Ausgabe Teil der 15-%-Summe – sonst würde die Grenze
+    /// rechnerisch wieder unterschritten.
+    func testCapitalizedExpenseStaysInThresholdSum() {
         let property = Property(purchasePrice: 300_000, purchaseDate: calendarDate(2023, 1, 1), landValue: 60_000)
         context.insert(property)
         let thresholdCase = ThreeYearThresholdCase(periodStart: calendarDate(2023, 1, 1), periodEnd: calendarDate(2025, 12, 31))
@@ -762,9 +775,12 @@ final class TaxCalculationTests: XCTestCase {
         thresholdCase.assessment(for: expense)?.status = .certain
         XCTAssertEqual(thresholdCase.candidateExpenses.count, 1)
 
+        let before = thresholdCase.includedNetTotal
         CapitalizationDecision.create(from: [expense], property: property, thresholdCase: thresholdCase, reason: "", context: context)
 
-        XCTAssertTrue(thresholdCase.candidateExpenses.isEmpty, "Eine aktivierte Ausgabe darf nicht erneut als 15-%-Kandidat auftauchen (kein Doppelansatz).")
+        XCTAssertEqual(thresholdCase.candidateExpenses.count, 1)
+        XCTAssertEqual(thresholdCase.includedNetTotal, before, accuracy: 0.01)
+        XCTAssertEqual(property.maintenanceExpenses(forYear: 2023), 0, "Als Werbungskosten wird sie nicht mehr abgezogen (kein Doppelansatz).")
     }
 
     func testCapitalizationDecisionDoesNotDoubleLinkAlreadyCapitalizedExpenses() {
@@ -778,18 +794,18 @@ final class TaxCalculationTests: XCTestCase {
         expenseB.property = property
         context.insert(expenseB)
 
-        let firstDecision = CapitalizationDecision.create(from: [expenseA], property: property, thresholdCase: nil, reason: "", context: context)
+        let firstDecision = CapitalizationDecision.create(from: [expenseA], property: property, thresholdCase: nil, reason: "", context: context).first
         XCTAssertNotNil(firstDecision)
 
         // Zweiter Aufruf mit A (bereits verknüpft) + B (neu): nur B darf berücksichtigt werden.
-        let secondDecision = CapitalizationDecision.create(from: [expenseA, expenseB], property: property, thresholdCase: nil, reason: "", context: context)
+        let secondDecision = CapitalizationDecision.create(from: [expenseA, expenseB], property: property, thresholdCase: nil, reason: "", context: context).first
         XCTAssertEqual(secondDecision?.sourceExpenses?.count, 1)
         XCTAssertEqual(secondDecision?.totalAmount, 5_000)
         XCTAssertEqual(expenseA.capitalizationDecision, firstDecision, "Eine bereits aktivierte Ausgabe darf durch einen weiteren Aufruf nicht umgehängt werden.")
 
         // Dritter Aufruf nur mit der bereits verknüpften Ausgabe A: keine neue Entscheidung.
         let thirdDecision = CapitalizationDecision.create(from: [expenseA], property: property, thresholdCase: nil, reason: "", context: context)
-        XCTAssertNil(thirdDecision)
+        XCTAssertTrue(thirdDecision.isEmpty)
     }
 
     func testCapitalizationDecisionIncreasesTotalAfaOnlyFromEffectiveYearOnward() {
@@ -807,9 +823,9 @@ final class TaxCalculationTests: XCTestCase {
         // Vor dem Wirksamkeitsjahr (2022 < 2023): unverändert, keine rückwirkende Änderung.
         XCTAssertEqual(property.totalAfa(forYear: 2022), 4_800, accuracy: 0.01)
 
-        // Im Wirksamkeitsjahr selbst: Gebäude-AfA + monatsanteilige AfA auf das neue Wirtschaftsgut
-        // (20.000 € × 2 % × 7/12, da ab Juni/Monat 6 → 13-6=7 Monate).
-        let expectedAssetAfa2023 = 20_000 * 0.02 * 7.0 / 12.0
+        // Im Entstehungsjahr volle Jahres-AfA, als wären die Kosten zu Jahresbeginn angefallen
+        // (R 7.4 Abs. 9 Satz 3 EStR) – nicht nur 7/12 ab Juni.
+        let expectedAssetAfa2023 = 20_000 * 0.02
         XCTAssertEqual(property.totalAfa(forYear: 2023), 4_800 + expectedAssetAfa2023, accuracy: 0.01)
 
         // Folgejahr: volle Jahres-AfA auf das Wirtschaftsgut.
