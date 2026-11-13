@@ -1,68 +1,7 @@
 import SwiftUI
 import SwiftData
 
-/// Zeitraum-Granularität für die Kopfzeilen-Auswahl – bestimmt, welcher Ausschnitt für
-/// „Kaltmiete", „Zahlungseingänge", „offene Forderungen" und „Ausgaben" betrachtet wird.
-/// Vorauswahl ist der laufende Monat.
-private enum DashboardPeriod: String, CaseIterable, Identifiable {
-    case month, quarter, year
-
-    var id: String { rawValue }
-
-    var label: String {
-        switch self {
-        case .month: return "Monat"
-        case .quarter: return "Quartal"
-        case .year: return "Jahr"
-        }
-    }
-
-    /// Anfang/Ende des aktuellen Zeitraums dieser Granularität, ausgehend von heute.
-    var currentRange: (start: Date, end: Date) {
-        let calendar = Calendar.current
-        let now = Date.now
-        switch self {
-        case .month:
-            let start = calendar.date(from: calendar.dateComponents([.year, .month], from: now)) ?? now
-            let end = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: start) ?? now
-            return (start, end)
-        case .quarter:
-            let comps = calendar.dateComponents([.year, .month], from: now)
-            let month = comps.month ?? 1
-            let quarterStartMonth = ((month - 1) / 3) * 3 + 1
-            let start = calendar.date(from: DateComponents(year: comps.year, month: quarterStartMonth, day: 1)) ?? now
-            let end = calendar.date(byAdding: DateComponents(month: 3, day: -1), to: start) ?? now
-            return (start, end)
-        case .year:
-            let year = calendar.component(.year, from: now)
-            let start = calendar.date(from: DateComponents(year: year, month: 1, day: 1)) ?? now
-            let end = calendar.date(from: DateComponents(year: year, month: 12, day: 31)) ?? now
-            return (start, end)
-        }
-    }
-
-    /// Lesbare Bezeichnung des aktuellen Zeitraums, z.B. „Oktober 2026" / „Q4 2026" / „2026".
-    var currentRangeLabel: String {
-        let now = Date.now
-        let calendar = Calendar.current
-        switch self {
-        case .month:
-            return now.asMonthYear
-        case .quarter:
-            let month = calendar.component(.month, from: now)
-            let quarter = (month - 1) / 3 + 1
-            return "Q\(quarter) \(String(calendar.component(.year, from: now)))"
-        case .year:
-            return String(calendar.component(.year, from: now))
-        }
-    }
-}
-
-private enum PaymentStatusKind: String {
-    case paid = "Bezahlt"
-    case open = "Offen"
-    case overdue = "Überfällig"
-
+private extension DashboardPaymentStatus {
     var color: Color {
         switch self {
         case .paid: return Theme.statusGood
@@ -86,12 +25,7 @@ private struct TenancyRow: Identifiable {
     var tenantName: String { tenancy.tenant?.fullName ?? "Unbekannter Mieter" }
     var unitLabel: String { "\(tenancy.unit?.property?.name ?? "") · \(tenancy.unit?.name ?? "")" }
     var sollMiete: Double { tenancy.coldRent(forMonthContaining: .now) }
-    var status: PaymentStatusKind {
-        guard let payment = tenancy.payment(forMonthContaining: .now) else { return .open }
-        if payment.isPaid { return .paid }
-        if payment.isOverdue { return .overdue }
-        return .open
-    }
+    var status: DashboardPaymentStatus { DashboardPaymentStatus(tenancy: tenancy) }
     var statusLabel: String { status.rawValue }
     var arrears: Double { max(0, tenancy.arrearsBalance(upTo: .now)) }
 }
@@ -141,55 +75,14 @@ struct DashboardView: View {
 
     // MARK: - Kennzahlenkarten
 
-    /// Summe der Kaltmiete aller im Zeitraum jeweils laufenden Mietverhältnisse, monatsgenau
-    /// anteilig für die tatsächlich überlappenden Monate – nutzt dieselbe Methode wie
-    /// `Property.annualColdRent(forYear:)` (`Tenancy.coldRentContribution(from:to:)`), nur
-    /// granular für Monat/Quartal/Jahr statt nur für ein volles Kalenderjahr. Zuvor hatte diese
-    /// Funktion eine eigene Tag-1-Stichprobe je Monat, die ein unterjährig begonnenes
-    /// Mietverhältnis für den Startmonat auf 0 € statt anteilig zählte – im Widerspruch zu den
-    /// Renditekacheln, die bereits `annualColdRent(forYear:)` nutzen.
-    private func coldRent(in range: (start: Date, end: Date)) -> Double {
-        scopedTenancies.reduce(0.0) { $0 + $1.coldRentContribution(from: range.start, to: range.end) }
+    /// Kennzahlen des gewählten Zeitraums (Logik in `DashboardMetrics`, dort getestet).
+    private var periodMetrics: DashboardMetrics {
+        DashboardMetrics(properties: scopedProperties, units: scopedUnits, tenancies: scopedTenancies, expenses: scopedExpenses, range: selectedPeriod.currentRange)
     }
 
-    private var kaltmieteInPeriod: Double {
-        coldRent(in: selectedPeriod.currentRange)
-    }
-
-    private var paymentsReceivedInPeriod: Double {
-        let range = selectedPeriod.currentRange
-        return scopedTenancies.flatMap { $0.payments ?? [] }
-            .filter { payment in
-                guard let paidDate = payment.paidDate else { return false }
-                return paidDate >= range.start && paidDate <= range.end
-            }
-            .reduce(0) { $0 + ($1.paidAmount ?? $1.totalDue) }
-    }
-
-    /// Ob ein Mietverhältnis im gewählten Zeitraum mindestens eine offene (nicht bezahlte)
-    /// Position hat – Monat für Monat geprüft, auch wenn für einen Monat gar kein `RentPayment`
-    /// existiert (dann gilt er als offen, konsistent mit `PaymentsOverviewView`).
-    private func hasOpenPosition(_ tenancy: Tenancy, in range: (start: Date, end: Date)) -> Bool {
-        let calendar = Calendar.current
-        var date = range.start
-        while date <= range.end {
-            if tenancy.isRunning(on: date), tenancy.payment(forMonthContaining: date)?.isPaid != true {
-                return true
-            }
-            guard let next = calendar.date(byAdding: .month, value: 1, to: date) else { break }
-            date = next
-        }
-        return false
-    }
-
-    /// Mieter mit offenen Forderungen im gewählten Zeitraum, summiert dann aber ihren **gesamten**
-    /// aktuellen Rückstand (nicht nur den Anteil aus dem Zeitraum).
-    private var openArrearsInPeriod: Double {
-        let range = selectedPeriod.currentRange
-        return scopedTenancies
-            .filter { hasOpenPosition($0, in: range) }
-            .reduce(0) { $0 + max(0, $1.arrearsBalance(upTo: .now)) }
-    }
+    private var kaltmieteInPeriod: Double { periodMetrics.coldRent }
+    private var paymentsReceivedInPeriod: Double { periodMetrics.paymentsReceived }
+    private var openArrearsInPeriod: Double { periodMetrics.openArrears }
 
     // MARK: - Mietverhältnis-Tabelle
 
@@ -228,44 +121,11 @@ struct DashboardView: View {
 
     // MARK: - Weitere Kennzahlen (eingeklappt)
 
-    private var vacantUnits: [Unit] {
-        scopedUnits.filter { $0.activeTenancy == nil }
-    }
-
-    private var vacancyRatePercent: Double? {
-        guard !scopedUnits.isEmpty else { return nil }
-        return Double(vacantUnits.count) / Double(scopedUnits.count) * 100
-    }
-
-    private var estimatedMonthlyVacancyLoss: Double {
-        vacantUnits.reduce(0.0) { sum, unit in
-            let lastPastTenancy = (unit.tenancies ?? [])
-                .filter { $0.endDate != nil }
-                .sorted { ($0.endDate ?? .distantPast) > ($1.endDate ?? .distantPast) }
-                .first
-            return sum + (lastPastTenancy.map { $0.coldRent(forMonthContaining: $0.endDate ?? .now) } ?? 0)
-        }
-    }
-
-    private var totalInvestment: Double {
-        scopedProperties.reduce(0) { $0 + $1.purchasePrice }
-    }
-
-    private var portfolioGrossYieldPercent: Double? {
-        let relevant = scopedProperties.filter { $0.purchasePrice > 0 }
-        guard !relevant.isEmpty else { return nil }
-        let totalPrice = relevant.reduce(0) { $0 + $1.purchasePrice }
-        guard totalPrice > 0 else { return nil }
-        let totalAnnualRent = relevant.reduce(0) { $0 + $1.annualColdRentFromActiveTenancies }
-        return (totalAnnualRent / totalPrice) * 100
-    }
-
-    private var expensesInPeriod: Double {
-        let range = selectedPeriod.currentRange
-        return scopedExpenses
-            .filter { $0.date >= range.start && $0.date <= range.end }
-            .reduce(0) { $0 + $1.amount }
-    }
+    private var vacancyRatePercent: Double? { periodMetrics.vacancyRatePercent }
+    private var estimatedMonthlyVacancyLoss: Double { periodMetrics.estimatedMonthlyVacancyLoss }
+    private var totalInvestment: Double { periodMetrics.totalInvestment }
+    private var portfolioGrossYieldPercent: Double? { periodMetrics.grossYieldPercent }
+    private var expensesInPeriod: Double { periodMetrics.expensesInRange }
 
     private var metrics: PortfolioMetrics {
         PortfolioMetrics(properties: scopedProperties, year: selectedTaxYear, marginalTaxRatePercent: landlords.first?.marginalTaxRatePercent)
@@ -371,7 +231,7 @@ struct DashboardView: View {
 
             Spacer()
 
-            Text(selectedPeriod.currentRangeLabel)
+            Text(selectedPeriod.rangeLabel())
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }

@@ -162,28 +162,19 @@ struct ExpenseEditView: View {
     }
 
     private func save() {
-        let amount = amountText.parsedDecimal ?? 0
-        let vatRate = taxTreatment == .maintenanceExpense ? vatRateText.parsedDecimal : nil
-
-        if let expense {
-            expense.title = title
-            expense.amount = amount
-            expense.date = date
-            expense.category = category
-            expense.taxTreatment = taxTreatment
-            expense.property = selectedProperty
-            expense.unit = selectedUnit
-            expense.vatRatePercent = vatRate
-            expense.notes = notes
-            expense.receiptPending = receiptPending
-        } else {
-            let newExpense = Expense(date: date, amount: amount, category: category, title: title, notes: notes, taxTreatment: taxTreatment)
-            newExpense.property = selectedProperty
-            newExpense.unit = selectedUnit
-            newExpense.vatRatePercent = vatRate
-            newExpense.receiptPending = receiptPending
-            modelContext.insert(newExpense)
-        }
+        let values = FormSaving.ExpenseFormValues(
+            title: title,
+            amountText: amountText,
+            date: date,
+            category: category,
+            taxTreatment: taxTreatment,
+            property: selectedProperty,
+            unit: selectedUnit,
+            vatRateText: vatRateText,
+            notes: notes,
+            receiptPending: receiptPending
+        )
+        FormSaving.saveExpense(values, existing: expense, context: modelContext)
         dismiss()
     }
 

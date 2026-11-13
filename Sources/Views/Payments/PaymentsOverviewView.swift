@@ -39,47 +39,20 @@ struct PaymentsOverviewView: View {
     }
 
     private func tenantGroups(forYear year: Int) -> [TenantYearGroup] {
-        let calendar = Calendar.current
-        guard let yearStart = calendar.date(from: DateComponents(year: year, month: 1, day: 1)),
-              let previousYearEnd = calendar.date(byAdding: .day, value: -1, to: yearStart) else { return [] }
-
-        let relevant = tenancies.filter { tenancy in
-            (1...12).contains { month in
-                guard let date = calendar.date(from: DateComponents(year: year, month: month, day: 1)) else { return false }
-                return tenancy.isRunning(on: date)
+        tenancies
+            .filter { RentLedger.isRelevant($0, inYear: year) }
+            .map { tenancy in
+                let rows = RentLedger.rows(for: tenancy, year: year).map {
+                    LedgerRow(month: $0.month, due: $0.due, paid: $0.paid, runningBalance: $0.runningBalance)
+                }
+                return TenantYearGroup(tenancy: tenancy, rows: rows)
             }
-        }
-
-        return relevant.map { tenancy in
-            var running = tenancy.arrearsBalance(upTo: previousYearEnd)
-            let rows: [LedgerRow] = (1...12).compactMap { month in
-                guard let date = calendar.date(from: DateComponents(year: year, month: month, day: 1)) else { return nil }
-                guard tenancy.isRunning(on: date) else { return nil }
-                let due = tenancy.totalMonthlyAmount(forMonthContaining: date)
-                let payment = tenancy.payment(forMonthContaining: date)
-                let paid = (payment?.isPaid == true) ? (payment?.paidAmount ?? due) : 0
-                running += (due - paid)
-                return LedgerRow(month: date, due: due, paid: paid, runningBalance: running)
-            }
-            return TenantYearGroup(tenancy: tenancy, rows: rows)
-        }
-        .sorted { ($0.tenancy.tenant?.fullName ?? "") < ($1.tenancy.tenant?.fullName ?? "") }
+            .sorted { ($0.tenancy.tenant?.fullName ?? "") < ($1.tenancy.tenant?.fullName ?? "") }
     }
 
     /// Alle Jahre, in denen mindestens ein Mietverhältnis läuft (aus Beginn-/Enddatum
     /// abgeleitet), plus das laufende Jahr – absteigend sortiert.
-    private var availableYears: [Int] {
-        let calendar = Calendar.current
-        var years = Set<Int>()
-        for tenancy in tenancies {
-            let startYear = calendar.component(.year, from: tenancy.startDate)
-            let endYear = tenancy.endDate.map { calendar.component(.year, from: $0) } ?? calendar.component(.year, from: .now)
-            guard startYear <= endYear else { continue }
-            for year in startYear...endYear { years.insert(year) }
-        }
-        years.insert(calendar.component(.year, from: .now))
-        return years.sorted(by: >)
-    }
+    private var availableYears: [Int] { RentLedger.availableYears(for: tenancies) }
 
     private struct YearSection: Identifiable {
         let year: Int
@@ -102,10 +75,7 @@ struct PaymentsOverviewView: View {
     /// Aktuelle Mietrückstände je Mieter (unabhängig vom Jahr) – für die Übersicht im
     /// allgemeinen Zahlungen-Reiter, über alle Jahre hinweg zum heutigen Stichtag.
     private var currentArrears: [(tenancy: Tenancy, balance: Double)] {
-        tenancies
-            .map { ($0, $0.arrearsBalance(upTo: .now)) }
-            .filter { $0.1 > 0.005 }
-            .sorted { $0.1 > $1.1 }
+        RentLedger.currentArrears(tenancies)
     }
 
     var body: some View {
@@ -279,22 +249,11 @@ struct PaymentsOverviewView: View {
     }
 
     private func markPaid(tenancy: Tenancy, month: Date) {
-        if let existing = tenancy.payment(forMonthContaining: month) {
-            existing.markPaid(date: .now)
-        } else {
-            let payment = RentPayment(
-                dueDate: month,
-                coldRentDue: tenancy.coldRent(forMonthContaining: month),
-                utilityAdvanceDue: tenancy.utilityAdvance
-            )
-            payment.markPaid(date: .now)
-            payment.tenancy = tenancy
-            modelContext.insert(payment)
-        }
+        RentLedger.markPaid(tenancy: tenancy, month: month, context: modelContext)
     }
 
     private func markUnpaid(tenancy: Tenancy, month: Date) {
-        tenancy.payment(forMonthContaining: month)?.markUnpaid()
+        RentLedger.markUnpaid(tenancy: tenancy, month: month)
     }
 }
 

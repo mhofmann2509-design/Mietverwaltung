@@ -21,6 +21,34 @@
                ReferencedContainer = "container:Mietverwaltung.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "6B9DC04889D5DE249757FB53"
+               BuildableName = "MietverwaltungTests-iOS.xctest"
+               BlueprintName = "MietverwaltungTests-iOS"
+               ReferencedContainer = "container:Mietverwaltung.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
+         <BuildActionEntry
+            buildForTesting = "YES"
+            buildForRunning = "NO"
+            buildForProfiling = "NO"
+            buildForArchiving = "NO"
+            buildForAnalyzing = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "5C41892344F76D7ECC66318F"
+               BuildableName = "MietverwaltungUITests.xctest"
+               BlueprintName = "MietverwaltungUITests"
+               ReferencedContainer = "container:Mietverwaltung.xcodeproj">
+            </BuildableReference>
+         </BuildActionEntry>
       </BuildActionEntries>
    </BuildAction>
    <TestAction
@@ -39,7 +67,31 @@
          </BuildableReference>
       </MacroExpansion>
       <Testables>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "6B9DC04889D5DE249757FB53"
+               BuildableName = "MietverwaltungTests-iOS.xctest"
+               BlueprintName = "MietverwaltungTests-iOS"
+               ReferencedContainer = "container:Mietverwaltung.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
+         <TestableReference
+            skipped = "NO"
+            parallelizable = "NO">
+            <BuildableReference
+               BuildableIdentifier = "primary"
+               BlueprintIdentifier = "5C41892344F76D7ECC66318F"
+               BuildableName = "MietverwaltungUITests.xctest"
+               BlueprintName = "MietverwaltungUITests"
+               ReferencedContainer = "container:Mietverwaltung.xcodeproj">
+            </BuildableReference>
+         </TestableReference>
       </Testables>
+      <CommandLineArguments>
+      </CommandLineArguments>
    </TestAction>
    <LaunchAction
       buildConfiguration = "Debug"

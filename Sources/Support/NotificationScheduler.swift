@@ -22,10 +22,14 @@ enum NotificationScheduler {
     static func sync(_ items: [ReminderItem]) {
         let center = UNUserNotificationCenter.current()
         center.removeAllPendingNotificationRequests()
+        requests(for: items).forEach { center.add($0) }
+    }
 
+    /// Die zu planenden Benachrichtigungen – ohne Zugriff auf das System, daher testbar.
+    static func requests(for items: [ReminderItem], now: Date = .now) -> [UNNotificationRequest] {
         let calendar = Calendar.current
-        for item in items {
-            guard let dueDate = item.dueDate else { continue }
+        return items.compactMap { item in
+            guard let dueDate = item.dueDate else { return nil }
             let triggerDate = calendar.date(byAdding: .day, value: -1, to: dueDate) ?? dueDate
 
             let content = UNMutableNotificationContent()
@@ -36,15 +40,14 @@ enum NotificationScheduler {
             content.sound = .default
 
             let trigger: UNNotificationTrigger
-            if triggerDate <= .now {
+            if triggerDate <= now {
                 trigger = UNTimeIntervalNotificationTrigger(timeInterval: 5, repeats: false)
             } else {
                 var components = calendar.dateComponents([.year, .month, .day], from: triggerDate)
                 components.hour = 9
                 trigger = UNCalendarNotificationTrigger(dateMatching: components, repeats: false)
             }
-
-            center.add(UNNotificationRequest(identifier: item.id, content: content, trigger: trigger))
+            return UNNotificationRequest(identifier: item.id, content: content, trigger: trigger)
         }
     }
 }

@@ -83,13 +83,46 @@ targets:
         TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Mietverwaltung.app/Contents/MacOS/Mietverwaltung"
         BUNDLE_LOADER: "$(TEST_HOST)"
 
+  MietverwaltungTests-iOS:
+    type: bundle.unit-test
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: Tests
+    dependencies:
+      - target: Mietverwaltung-iOS
+    settings:
+      base:
+        PRODUCT_NAME: MietverwaltungTests
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/Mietverwaltung.app/Mietverwaltung"
+        BUNDLE_LOADER: "$(TEST_HOST)"
+
+  MietverwaltungUITests:
+    type: bundle.ui-testing
+    platform: iOS
+    deploymentTarget: "17.0"
+    sources:
+      - path: UITests
+    dependencies:
+      - target: Mietverwaltung-iOS
+    settings:
+      base:
+        PRODUCT_NAME: MietverwaltungUITests
+        TEST_TARGET_NAME: Mietverwaltung-iOS
+
 schemes:
   Mietverwaltung-iOS:
     build:
       targets:
         Mietverwaltung-iOS: all
+        MietverwaltungTests-iOS: [test]
+        MietverwaltungUITests: [test]
     run:
       config: Debug
+    test:
+      targets:
+        - MietverwaltungTests-iOS
+        - MietverwaltungUITests
   Mietverwaltung-macOS:
     build:
       targets:

@@ -152,10 +152,8 @@ struct WirtschaftsplanEditView: View {
             modelContext.insert(target)
         }
 
-        for draft in lineItems {
-            let costType = draft.costType.trimmingCharacters(in: .whitespaces)
-            guard let amount = draft.amountText.parsedDecimal, amount > 0, !costType.isEmpty else { continue }
-            let lineItem = WirtschaftsplanLineItem(costType: costType, amount: amount, isApportionable: draft.isApportionable, allocationKeyLabel: draft.allocationKeyLabel ?? "")
+        for item in LineItemDraft.persistable(lineItems) {
+            let lineItem = WirtschaftsplanLineItem(costType: item.costType, amount: item.amount, isApportionable: item.isApportionable, allocationKeyLabel: item.allocationKeyLabel)
             lineItem.statement = target
             modelContext.insert(lineItem)
         }

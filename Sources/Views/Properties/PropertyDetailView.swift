@@ -730,43 +730,12 @@ struct PropertyDetailView: View {
         .fontWeight(emphasized ? .semibold : .regular)
     }
 
-    /// Vollständiger Tilgungsverlauf ab Finanzierungsbeginn bis zur Volltilgung (oder maximal 60
-    /// Jahre als Sicherheitsgrenze), jahresweise Zins/Tilgung/Restschuld.
     private var amortizationSchedule: [(year: Int, interest: Double, principal: Double, remaining: Double)] {
-        guard let loanStartDate = property.loanStartDate, property.loanAmount > 0 else { return [] }
-        var rows: [(year: Int, interest: Double, principal: Double, remaining: Double)] = []
-        var year = Calendar.current.component(.year, from: loanStartDate)
-        while rows.count < 60 {
-            guard let breakdown = property.loanBreakdown(forYear: year) else { break }
-            rows.append((year, breakdown.interest, breakdown.principal, breakdown.remainingBalance))
-            if breakdown.remainingBalance <= 0.5 { break }
-            year += 1
-        }
-        return rows
+        property.amortizationSchedule()
     }
 
-    /// Monatsweiser Tilgungsplan für das oben gewählte Betrachtungsjahr: die Jahreswerte aus
-    /// `loanBreakdown(forYear:)` gleichmäßig auf die 12 Monate verteilt (vereinfachtes
-    /// Annuitätendarlehen, keine echte monatliche Verzinsung) – die letzte Restschuld entspricht
-    /// exakt der jahresweisen Berechnung, Zwischenmonate sind linear interpoliert.
     private var monthlyAmortizationSchedule: [TilgungsplanReportDocument.MonthRow] {
-        guard let yearBreakdown = property.loanBreakdown(forYear: selectedTaxYear) else { return [] }
-        let calendar = Calendar.current
-        let startYear = property.loanStartDate.map { calendar.component(.year, from: $0) } ?? selectedTaxYear
-        let startOfYearBalance: Double = selectedTaxYear <= startYear
-            ? property.loanAmount
-            : (property.loanBreakdown(forYear: selectedTaxYear - 1)?.remainingBalance ?? property.loanAmount)
-
-        let monthlyInterest = yearBreakdown.interest / 12
-        let monthlyPrincipal = yearBreakdown.principal / 12
-        var rows: [TilgungsplanReportDocument.MonthRow] = []
-        var balance = startOfYearBalance
-        for month in 1...12 {
-            let isLastMonth = month == 12
-            balance = isLastMonth ? yearBreakdown.remainingBalance : max(0, balance - monthlyPrincipal)
-            rows.append(.init(month: month, interest: monthlyInterest, principal: monthlyPrincipal, remainingBalance: balance))
-        }
-        return rows
+        property.monthlyAmortizationSchedule(forYear: selectedTaxYear)
     }
 
     private var betriebskostenEntries: [BetriebskostenEntry] {

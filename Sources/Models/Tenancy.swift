@@ -121,7 +121,7 @@ final class Tenancy {
     /// zugeordnet nach Fälligkeitsmonat. Monate mit erfasster Zahlung zählen mit dem tatsächlich
     /// gezahlten Betrag (eine Teilzahlung wird im Verhältnis Kaltmiete/Vorauszahlung aufgeteilt),
     /// erfasste, aber unbezahlte Monate mit 0. Monate ganz ohne Zahlungseintrag werden mit dem
-    /// Soll angesetzt und in `estimatedMonths` gezählt, damit der Bericht darauf hinweisen kann.
+    /// tagesgenau anteiligen Soll angesetzt und in `estimatedMonths` gezählt, damit der Bericht darauf hinweisen kann.
     func receivedRent(inYear year: Int) -> (coldRent: Double, utilityAdvances: Double, estimatedMonths: Int) {
         let calendar = Calendar.current
         var cold = 0.0
@@ -136,8 +136,12 @@ final class Tenancy {
                 cold += paid * payment.coldRentDue / payment.totalDue
                 utility += paid * payment.utilityAdvanceDue / payment.totalDue
             } else {
-                cold += coldRent(forMonthContaining: monthStart)
-                utility += utilityAdvance
+                // Soll tagesgenau anteilig, damit ein Wechselmonat nicht doppelt geschätzt wird.
+                guard let monthEnd = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: monthStart),
+                      let daysInMonth = calendar.range(of: .day, in: .month, for: monthStart)?.count else { continue }
+                let share = Double(activeDays(from: monthStart, to: monthEnd)) / Double(daysInMonth)
+                cold += coldRentContribution(from: monthStart, to: monthEnd)
+                utility += utilityAdvance * share
                 estimated += 1
             }
         }
@@ -187,11 +191,12 @@ final class Tenancy {
             }
     }
 
-    /// Anteilige Kaltmiete dieses Mietverhältnisses innerhalb eines frei wählbaren Zeitraums:
-    /// monatsgenau für die tatsächlich überlappenden Monate, nicht nur für Monate, deren 1. Tag in
-    /// den Zeitraum fällt – ein unterjährig begonnenes oder beendetes Mietverhältnis fließt also
-    /// nicht mit vollen Monaten ein. Gemeinsame Basis für `Property.annualColdRent(forYear:)` und
-    /// die Dashboard-Kennzahl je gewähltem Zeitraum, damit beide dieselbe Zahl zeigen.
+    /// Anteilige Kaltmiete dieses Mietverhältnisses innerhalb eines frei wählbaren Zeitraums,
+    /// tagesgenau: Jeder überlappende Monat zählt mit dem Anteil seiner Tage, an denen das
+    /// Mietverhältnis lief und die im Zeitraum liegen (Mietbeginn am 16.06. → 15/30 der Juni-Miete).
+    /// So zählt bei einem Mieterwechsel mitten im Monat der Wechselmonat insgesamt nur einmal.
+    /// Gemeinsame Basis für `Property.annualColdRent(forYear:)` und die Dashboard-Kennzahl je
+    /// gewähltem Zeitraum, damit beide dieselbe Zahl zeigen.
     func coldRentContribution(from rangeStart: Date, to rangeEnd: Date) -> Double {
         let calendar = Calendar.current
         let tenancyEnd = endDate ?? rangeEnd
@@ -201,7 +206,10 @@ final class Tenancy {
               var month = calendar.date(from: calendar.dateComponents([.year, .month], from: overlapStart)) else { return 0 }
         var sum = 0.0
         while month <= overlapEnd {
-            sum += coldRent(forMonthContaining: month)
+            guard let monthEnd = calendar.date(byAdding: DateComponents(month: 1, day: -1), to: month),
+                  let daysInMonth = calendar.range(of: .day, in: .month, for: month)?.count else { break }
+            let days = activeDays(from: max(month, rangeStart), to: min(monthEnd, rangeEnd))
+            sum += coldRent(forMonthContaining: month) * Double(days) / Double(daysInMonth)
             guard let next = calendar.date(byAdding: .month, value: 1, to: month) else { break }
             month = next
         }

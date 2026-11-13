@@ -13,11 +13,13 @@ struct MietverwaltungApp: App {
         // Abschnitt "iCloud-Sync (CloudKit)", für den dafür nötigen einmaligen Xcode-Schritt
         // (Team in Signing & Capabilities auswählen) sowie zum Zurückschalten auf rein lokale
         // Speicherung ohne Sync.
-        let modelConfiguration = ModelConfiguration(
-            schema: schema,
-            isStoredInMemoryOnly: false,
-            cloudKitDatabase: .automatic
-        )
+        //
+        // Bei Test-Läufen (Unit- und UI-Tests) nur eine temporäre In-Memory-Datenbank ohne
+        // iCloud – sonst würde jeder Testlauf die echte Datenbank öffnen und im Debug-Build ggf.
+        // Demodaten hineinschreiben.
+        let modelConfiguration = LaunchEnvironment.usesInMemoryStore
+            ? ModelConfiguration(schema: schema, isStoredInMemoryOnly: true, cloudKitDatabase: .none)
+            : ModelConfiguration(schema: schema, isStoredInMemoryOnly: false, cloudKitDatabase: .automatic)
 
         do {
             return try ModelContainer(for: schema, configurations: [modelConfiguration])
@@ -36,6 +38,7 @@ struct MietverwaltungApp: App {
             ContentView()
                 #if DEBUG
                 .task {
+                    guard !LaunchEnvironment.isUnitTesting else { return }
                     DemoSeeder.seedIfNeeded(context: sharedModelContainer.mainContext)
                     DemoSeeder.expandIfNeeded(context: sharedModelContainer.mainContext)
                     DemoSeeder.enrichTenantContactDataIfNeeded(context: sharedModelContainer.mainContext)

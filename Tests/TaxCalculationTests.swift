@@ -406,10 +406,10 @@ final class TaxCalculationTests: XCTestCase {
 
     /// Deckt den vom Recherche-Agenten gefundenen Fund ab: `Tenancy.coldRentContribution(from:to:)`
     /// ist jetzt die gemeinsame Basis für `Property.annualColdRent(forYear:)` UND die
-    /// Dashboard-Kennzahl je gewähltem Zeitraum. Ein unterjährig (am 20. eines Monats) begonnenes
-    /// Mietverhältnis muss den Startmonat trotzdem voll anteilig zählen – die alte, inzwischen
-    /// entfernte Tag-1-Stichprobe im Dashboard hätte für genau diesen Monat 0 € geliefert.
-    func testColdRentContributionCountsPartialStartMonthFully() {
+    /// Dashboard-Kennzahl je gewähltem Zeitraum. Ein am 20. eines Monats begonnenes
+    /// Mietverhältnis zählt den Startmonat tagesgenau anteilig (12 von 31 Tagen) – weder 0 €
+    /// (alte Tag-1-Stichprobe im Dashboard) noch die volle Monatsmiete (alte Monatszählung).
+    func testColdRentContributionCountsPartialStartMonthProRata() {
         let property = Property(name: "Test")
         let unit = Unit(name: "1. OG")
         unit.property = property
@@ -421,7 +421,7 @@ final class TaxCalculationTests: XCTestCase {
 
         let monthStart = calendarDate(2026, 3, 1)
         let monthEnd = calendarDate(2026, 3, 31)
-        XCTAssertEqual(tenancy.coldRentContribution(from: monthStart, to: monthEnd), 1_000, accuracy: 0.01)
+        XCTAssertEqual(tenancy.coldRentContribution(from: monthStart, to: monthEnd), 1_000 * 12 / 31, accuracy: 0.01)
 
         // Beide Stellen müssen für denselben Zeitraum exakt dieselbe Zahl liefern.
         XCTAssertEqual(property.annualColdRent(forYear: 2026), tenancy.coldRentContribution(from: calendarDate(2026, 1, 1), to: calendarDate(2026, 12, 31)), accuracy: 0.01)

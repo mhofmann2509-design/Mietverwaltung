@@ -26,12 +26,7 @@ enum CalendarEventManager {
             event.calendar = store.defaultCalendarForNewEvents ?? store.calendars(for: .event).first
         }
 
-        event.title = title
-        event.startDate = date
-        event.endDate = date.addingTimeInterval(2 * 3600)
-        event.location = location
-        event.notes = notes
-        event.alarms = [EKAlarm(relativeOffset: -3 * 24 * 3600)]
+        configure(event, title: title, date: date, location: location, notes: notes)
 
         do {
             try store.save(event, span: .thisEvent)
@@ -39,6 +34,16 @@ enum CalendarEventManager {
         } catch {
             return nil
         }
+    }
+
+    /// Termin von 2 Stunden mit Erinnerung 3 Tage vorher – ohne Kalenderzugriff testbar.
+    static func configure(_ event: EKEvent, title: String, date: Date, location: String, notes: String) {
+        event.title = title
+        event.startDate = date
+        event.endDate = date.addingTimeInterval(2 * 3600)
+        event.location = location
+        event.notes = notes
+        event.alarms = [EKAlarm(relativeOffset: -3 * 24 * 3600)]
     }
 
     static func removeEvent(identifier: String) {

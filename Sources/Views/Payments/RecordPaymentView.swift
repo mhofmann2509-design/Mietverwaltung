@@ -98,28 +98,15 @@ struct RecordPaymentView: View {
     }
 
     private func save() {
-        let coldRentDue = coldRentDueText.parsedDecimal ?? 0
-        let utilityAdvanceDue = utilityAdvanceDueText.parsedDecimal ?? 0
-        let paidAmount = paidAmountText.parsedDecimal
-
-        let payment = existingPayment ?? {
-            let newPayment = RentPayment(dueDate: month)
-            newPayment.tenancy = tenancy
-            modelContext.insert(newPayment)
-            return newPayment
-        }()
-
-        payment.coldRentDue = coldRentDue
-        payment.utilityAdvanceDue = utilityAdvanceDue
-        payment.note = note
-
-        if isPaid {
-            payment.paidDate = paidDate
-            payment.paidAmount = paidAmount ?? payment.totalDue
-        } else {
-            payment.markUnpaid()
-        }
-
+        let values = FormSaving.PaymentFormValues(
+            coldRentDueText: coldRentDueText,
+            utilityAdvanceDueText: utilityAdvanceDueText,
+            isPaid: isPaid,
+            paidDate: paidDate,
+            paidAmountText: paidAmountText,
+            note: note
+        )
+        FormSaving.savePayment(values, tenancy: tenancy, month: month, context: modelContext)
         dismiss()
     }
 }

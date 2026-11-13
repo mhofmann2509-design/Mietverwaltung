@@ -322,70 +322,32 @@ struct TenancyEditView: View {
     }
 
     private func save() {
-        let coldRent = coldRentText.parsedDecimal ?? 0
-        let utilityAdvance = utilityAdvanceText.parsedDecimal ?? 0
-        let deposit = depositText.parsedDecimal ?? 0
-
-        let tenant: Tenant
+        let tenantChoice: FormSaving.TenancyFormValues.TenantChoice?
         if creatingNewTenant {
-            tenant = Tenant(firstName: newTenantFirstName, lastName: newTenantLastName)
-            modelContext.insert(tenant)
-        } else if let selectedTenant {
-            tenant = selectedTenant
+            tenantChoice = .new(firstName: newTenantFirstName, lastName: newTenantLastName)
         } else {
-            return
+            tenantChoice = selectedTenant.map { .existing($0) }
         }
-
-        let resolvedTenancy: Tenancy
-        if let tenancy {
-            tenancy.tenant = tenant
-            tenancy.startDate = startDate
-            tenancy.endDate = hasEndDate ? endDate : nil
-            tenancy.coldRent = coldRent
-            tenancy.utilityAdvance = utilityAdvance
-            tenancy.deposit = deposit
-            tenancy.depositReceived = depositReceived
-            tenancy.noticePeriodMonths = noticePeriodMonths
-            tenancy.occupantCount = occupantCount
-            tenancy.notes = notes
-            resolvedTenancy = tenancy
-        } else {
-            let newTenancy = Tenancy(
-                startDate: startDate,
-                endDate: hasEndDate ? endDate : nil,
-                coldRent: coldRent,
-                utilityAdvance: utilityAdvance,
-                deposit: deposit,
-                depositReceived: depositReceived,
-                noticePeriodMonths: noticePeriodMonths,
-                occupantCount: occupantCount,
-                notes: notes
-            )
-            newTenancy.unit = unit
-            newTenancy.tenant = tenant
-            modelContext.insert(newTenancy)
-            resolvedTenancy = newTenancy
-        }
-
-        resolvedTenancy.contractType = contractType
-        resolvedTenancy.lastRentIncreaseDate = hasLastRentIncreaseDate ? lastRentIncreaseDate : nil
-        resolvedTenancy.lastIndexAdjustmentDate = hasLastIndexAdjustmentDate ? lastIndexAdjustmentDate : nil
-        resolvedTenancy.depositReturnedAt = (hasEndDate && hasDepositReturnedAt) ? depositReturnedAt : nil
-        resolvedTenancy.modernizationAnnouncedAt = hasModernizationAnnouncedAt ? modernizationAnnouncedAt : nil
-        resolvedTenancy.modernizationIncreaseDeclaredAt = hasModernizationIncreaseDeclaredAt ? modernizationIncreaseDeclaredAt : nil
-
-        for existingStep in resolvedTenancy.rentSteps ?? [] {
-            modelContext.delete(existingStep)
-        }
-        if contractType == .staffel {
-            for draft in rentStepDrafts {
-                let coldRent = draft.coldRentText.parsedDecimal ?? 0
-                let step = RentStep(effectiveDate: draft.effectiveDate, coldRent: coldRent)
-                step.tenancy = resolvedTenancy
-                modelContext.insert(step)
-            }
-        }
-
+        let values = FormSaving.TenancyFormValues(
+            tenant: tenantChoice,
+            startDate: startDate,
+            endDate: hasEndDate ? endDate : nil,
+            coldRentText: coldRentText,
+            utilityAdvanceText: utilityAdvanceText,
+            depositText: depositText,
+            depositReceived: depositReceived,
+            depositReturnedAt: hasDepositReturnedAt ? depositReturnedAt : nil,
+            noticePeriodMonths: noticePeriodMonths,
+            occupantCount: occupantCount,
+            notes: notes,
+            contractType: contractType,
+            lastRentIncreaseDate: hasLastRentIncreaseDate ? lastRentIncreaseDate : nil,
+            lastIndexAdjustmentDate: hasLastIndexAdjustmentDate ? lastIndexAdjustmentDate : nil,
+            modernizationAnnouncedAt: hasModernizationAnnouncedAt ? modernizationAnnouncedAt : nil,
+            modernizationIncreaseDeclaredAt: hasModernizationIncreaseDeclaredAt ? modernizationIncreaseDeclaredAt : nil,
+            rentSteps: rentStepDrafts.map { ($0.effectiveDate, $0.coldRentText) }
+        )
+        guard FormSaving.saveTenancy(values, existing: tenancy, unit: unit, context: modelContext) != nil else { return }
         dismiss()
     }
 
