@@ -128,6 +128,10 @@ final class Property {
     @Relationship(deleteRule: .cascade, inverse: \OwnersMeetingEvent.property)
     var ownersMeetings: [OwnersMeetingEvent]? = []
 
+    // Version 2: Sonderumlagen der WEG.
+    @Relationship(deleteRule: .cascade, inverse: \SpecialLevy.property)
+    var specialLevies: [SpecialLevy]? = []
+
     init(name: String = "", street: String = "", zipCode: String = "", city: String = "", notes: String = "", purchasePrice: Double = 0, purchaseAncillaryCosts: Double = 0, purchaseDate: Date? = nil, landValue: Double = 0, constructionYear: Int? = nil) {
         self.name = name
         self.street = street

@@ -16,6 +16,10 @@ final class OwnersMeetingEvent {
     var property: Property?
     var invitationDocument: Document?
 
+    /// Version 2: in dieser Versammlung beschlossene Sonderumlagen.
+    @Relationship(deleteRule: .nullify, inverse: \SpecialLevy.ownersMeeting)
+    var specialLevies: [SpecialLevy]? = []
+
     init(title: String = "Eigentümerversammlung", date: Date = .now, location: String = "", notes: String = "") {
         self.title = title
         self.date = date

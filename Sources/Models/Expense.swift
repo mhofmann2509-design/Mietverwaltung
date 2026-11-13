@@ -108,6 +108,9 @@ final class Expense {
     /// aus (da `taxTreatment` dabei auf `.capitalized` gesetzt wird).
     var capitalizationDecision: CapitalizationDecision?
 
+    /// Version 2: Sonderumlage, aus der diese Ausgabe gebucht wurde (siehe `SpecialLevy.syncExpense`).
+    var specialLevy: SpecialLevy?
+
     /// `taxTreatment` nil lässt die steuerliche Behandlung anhand der Kategorie automatisch bestimmen
     /// (Instandhaltung → Erhaltungsaufwand, sonst → sonstige Werbungskosten).
     init(date: Date = .now, amount: Double = 0, category: ExpenseCategory = .other, title: String = "", notes: String = "", taxTreatment: TaxTreatment? = nil) {

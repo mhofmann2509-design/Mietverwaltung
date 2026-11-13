@@ -80,6 +80,21 @@ Du hast erwähnt, dass der Projektordner selbst (`MietverwaltungsApp`, also der 
 
 Kurz: Ja, „über deine eigene iCloud" funktioniert die Synchronisierung – aber über CloudKit (wie oben beschrieben), nicht automatisch dadurch, dass der Projektordner in iCloud Drive liegt.
 
+## Datenbank-Versionen
+
+Das Datenmodell ist versioniert (`Sources/Models/SchemaV1.swift`, `AppSchema.swift`):
+
+- **Version 1** ist der eingefrorene Stand vor der Versionierung. Die Datei darf nicht geändert werden. `MigrationTests` gleicht sie Feld für Feld gegen die Beispiel-Datenbank `Tests/Fixtures/MietverwaltungV1.store` ab (nur erfundene Daten).
+- **Version 2** ergänzt das WEG-Modul: Hausgeld, Hausgeld-Zahlungen und Sonderumlagen.
+- Bestehende Datenbanken werden beim Start automatisch migriert. Eine Datenbank mit einem unbekannten, älteren Stand öffnet die App ersatzweise mit der automatischen Migration, statt abzustürzen.
+
+**Regel für Modelländerungen (wegen iCloud):** nur ergänzen, also neue Modelle oder neue Felder mit Standardwert bzw. optional. Nichts umbenennen oder löschen. Ablauf je neuer Version:
+
+1. Den bisherigen Stand als `SchemaVn` einfrieren.
+2. Eine Beispiel-Datenbank dieses Stands unter `Tests/Fixtures` ablegen.
+3. Die Stufe in `MietverwaltungMigrationPlan` ergänzen.
+4. `MigrationTests` erweitern.
+
 ## Projektstruktur ändern
 
 Das Projekt wird mit [XcodeGen](https://github.com/yonaskolb/XcodeGen) aus `project.yml` erzeugt (zuverlässiger als eine von Hand gepflegte `.xcodeproj`). **Nach jeder neuen Datei im `Sources`- oder `Tests`-Ordner und nach jeder Änderung an `project.yml`** (Build-Einstellungen, neue Targets, Pakete, Entitlements o. Ä.) einmal ausführen – die `.xcodeproj` wird sonst nicht aktualisiert und die neue Datei fehlt im Build:

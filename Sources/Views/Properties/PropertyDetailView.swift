@@ -614,6 +614,14 @@ struct PropertyDetailView: View {
     /// Reiter „Betriebskosten“: Abrechnung/Wirtschaftsplan des oben gewählten Betrachtungsjahres.
     @ViewBuilder
     private var betriebskostenTabSections: some View {
+        Section {
+            NavigationLink {
+                WEGView(property: property)
+            } label: {
+                Label("WEG: Hausgeld & Sonderumlagen", systemImage: "building.2.crop.circle")
+            }
+        }
+
         if betriebskostenEntriesForSelectedYear.isEmpty {
             Section("Betriebskosten \(String(selectedTaxYear))") {
                 Text("Noch keine Betriebskosten für \(String(selectedTaxYear)) erfasst. Unter Mietverwaltung → Nebenkostenabrechnung lässt sich die Abrechnung der Hausverwaltung oder der Wirtschaftsplan hochladen.")

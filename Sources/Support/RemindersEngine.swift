@@ -246,6 +246,41 @@ enum RemindersEngine {
             ))
         }
 
+        // WEG: Sonderumlagen (überfällig oder in den nächsten 30 Tagen fällig).
+        for property in properties {
+            for levy in property.specialLevies ?? [] where !levy.isPaid {
+                let daysLeft = daysUntil(levy.dueDate)
+                guard daysLeft <= 30 else { continue }
+                items.append(ReminderItem(
+                    id: "special-levy-\(levy.persistentModelID)",
+                    title: daysLeft < 0 ? "Sonderumlage überfällig" : "Sonderumlage fällig",
+                    subtitle: "\(property.name) · \(levy.title) · \(levy.amount.asCurrency) bis \(levy.dueDate.asShortDate)",
+                    severity: daysLeft < 0 ? .overdue : (daysLeft <= 7 ? .warning : .info),
+                    systemImage: "building.2.crop.circle",
+                    dueDate: levy.dueDate
+                ))
+            }
+        }
+
+        // WEG: Hausgeld der abgelaufenen Monate des laufenden Jahres noch offen.
+        if let previousMonthEnd = calendar.date(byAdding: .day, value: -1, to: calendar.date(from: calendar.dateComponents([.year, .month], from: now)) ?? now),
+           calendar.component(.year, from: previousMonthEnd) == calendar.component(.year, from: now) {
+            for property in properties {
+                for unit in property.units ?? [] where !(unit.hausgeldPlans ?? []).isEmpty {
+                    let account = HausgeldCalculator.account(for: unit, year: calendar.component(.year, from: now), upTo: previousMonthEnd)
+                    guard account.openMonths > 0, account.balance > 0.005 else { continue }
+                    items.append(ReminderItem(
+                        id: "hausgeld-open-\(unit.persistentModelID)",
+                        title: "Hausgeld offen",
+                        subtitle: "\(property.name) · \(unit.name) · \(account.openMonths) Monat(e), \(account.balance.asCurrency)",
+                        severity: .warning,
+                        systemImage: "eurosign.circle",
+                        dueDate: nil
+                    ))
+                }
+            }
+        }
+
         return items.sorted { $0.severity < $1.severity }
     }
 }

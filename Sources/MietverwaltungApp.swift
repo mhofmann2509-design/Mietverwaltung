@@ -22,7 +22,7 @@ struct MietverwaltungApp: App {
             : ModelConfiguration(schema: schema, isStoredInMemoryOnly: false, cloudKitDatabase: .automatic)
 
         do {
-            return try ModelContainer(for: schema, configurations: [modelConfiguration])
+            return try AppSchema.makeContainer(configuration: modelConfiguration)
         } catch {
             fatalError("ModelContainer konnte nicht erstellt werden: \(error)")
         }

@@ -28,6 +28,16 @@ final class Unit {
     @Relationship(deleteRule: .cascade, inverse: \DepreciableAsset.unit)
     var depreciableAssets: [DepreciableAsset]? = []
 
+    // Version 2: WEG-Hausgeld und Sonderumlagen.
+    @Relationship(deleteRule: .cascade, inverse: \HausgeldPlan.unit)
+    var hausgeldPlans: [HausgeldPlan]? = []
+
+    @Relationship(deleteRule: .cascade, inverse: \HausgeldPayment.unit)
+    var hausgeldPayments: [HausgeldPayment]? = []
+
+    @Relationship(deleteRule: .nullify, inverse: \SpecialLevy.unit)
+    var specialLevies: [SpecialLevy]? = []
+
     init(name: String = "", sizeSquareMeters: Double = 0, rooms: Double = 0, notes: String = "", coOwnershipShare: Double = 0) {
         self.name = name
         self.sizeSquareMeters = sizeSquareMeters

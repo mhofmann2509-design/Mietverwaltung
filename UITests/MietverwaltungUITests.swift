@@ -35,4 +35,24 @@ final class MietverwaltungUITests: XCTestCase {
         app.staticTexts["Musterstraße 1"].tap()
         XCTAssertTrue(app.navigationBars["Musterstraße 1"].waitForExistence(timeout: 5), "Detailansicht der Immobilie")
     }
+
+    func testWEGScreenOpensFromPropertyDetail() {
+        XCTAssertTrue(app.navigationBars["Übersicht"].waitForExistence(timeout: 15))
+        app.navigationBars["Übersicht"].buttons.firstMatch.tap()
+        let property = app.staticTexts["Musterstraße 1"]
+        XCTAssertTrue(property.waitForExistence(timeout: 5))
+        property.tap()
+        let tab = app.buttons["Betriebskosten"]
+        XCTAssertTrue(tab.waitForExistence(timeout: 5))
+        tab.tap()
+        let link = app.buttons.containing(NSPredicate(format: "label CONTAINS 'Hausgeld & Sonderumlagen'")).firstMatch
+        XCTAssertTrue(link.waitForExistence(timeout: 5))
+        link.tap()
+        XCTAssertTrue(app.navigationBars["WEG: Hausgeld & Sonderumlagen"].waitForExistence(timeout: 5))
+        let addLevy = app.buttons["Sonderumlage erfassen"]
+        for _ in 0..<6 where !addLevy.isHittable { app.swipeUp() }
+        XCTAssertTrue(addLevy.exists)
+        addLevy.tap()
+        XCTAssertTrue(app.navigationBars["Sonderumlage erfassen"].waitForExistence(timeout: 5))
+    }
 }
